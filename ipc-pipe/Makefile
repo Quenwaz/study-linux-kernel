@@ -4,7 +4,7 @@ TARGETS=ipc-pipe
 
 BIN_PATH=$(shell pwd)../bin
 ROOT_PATH=$(shell pwd)
-INC_PATH=$(ROOT_PATH)
+INC_PATH=-I$(ROOT_PATH)
 SRC_PATH=$(ROOT_PATH)
 # SRC_PATH+=$(ROOT_PATH)/src
 
@@ -35,14 +35,18 @@ $(info targets=$(TARGETS))
 ###############################################
 # build
 ###############################################
-all:$(TARGETS)
+all:$(TARGETS) clean_intermediate
 
 $(TARGETS): %:%.o
 	$(CXX) $< -o $@ 
 
 $(OBJS_CPP): %.o:%.cpp
-	$(CXX) $(CXXFLAGS) $< -o $@
+	$(CXX) $(CXXFLAGS) $(INC_PATH) $< -o $@
 
+
+.PHONY: clean_intermediate
+clean_intermediate:
+	rm ./*.o
 
 .PHONY: clean
 clean: 
