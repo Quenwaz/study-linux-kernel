@@ -36,5 +36,5 @@
 *.user
 *.tlog
 *.log
-/ipc-pipe/obj/x64/Debug
-/ipc-pipe/bin/x64/Debug
+/obj
+/bin
