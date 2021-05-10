@@ -98,5 +98,167 @@ pid_t fork(void);
 
 执行fork时， 子进程会获得父进程所有文件描述符副本。 意味着父子进程中对应的描述符均指向相同打开文件句柄。
 
+以下为创建调用fork惯用法:
+
+```c++
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(int argc, char const *argv[])
+{
+    pid_t pidChild = -1;
+    switch (pidChild = fork())
+    {
+    case -1:
+        // 创建失败
+        fprintf(stderr, "fork failed, error: %s", strerror(errno));
+        return EXIT_FAILURE;
+    case 0:
+        // 子进程进入
+        return EXIT_SUCCESS;
+    default:
+        break;
+    } 
+
+    // 父进程继续
+    return EXIT_SUCCESS;
+}
+```
+
+
+
 #### fork的内存语义
+
+在早期的UNIX实现中， fork对父进程的程序段、数据段、堆段以及栈段创建拷贝。 由于这种方式较为浪费， 后期作了一些改善。 大部分现代UNIX实现采用两种技术来避免这种浪费:
+
+- 内核将进程代码段标为只读。父子进程共享同一代码段。fork在创建代码段时， 共享父进程的物理页帧。
+- 对于父进程的数据段、堆段、栈段采用**写时复制**， 最初父子进程都使用相同的这些段， 内核一旦捕获到某进程试图修改， 则对该页进行拷贝后进行修改。
+
+#### fork之后的竞争条件
+
+调用fork之后，无法确定父子进程谁先访问CPU。
+
+以下代码执行足以说明:
+
+```c++
+// race-condition.cpp
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+int main(int argc, char const *argv[])
+{
+    if (argc < 2){
+        fprintf(stderr, "Usage: race-condition numprocess");
+        return EXIT_FAILURE;
+    }
+
+    size_t num_process = atoi(argv[1]);
+    pid_t pidChild = -1;
+    for (size_t i = 0;i < num_process; ++i){
+        switch (pidChild = fork())
+        {
+        case -1:
+            fprintf(stderr, "fork failed, error: %s", strerror(errno));
+            return EXIT_FAILURE;
+        case 0:
+            fprintf(stderr, "%d child\n", i);
+            return EXIT_SUCCESS;
+        default:
+            fprintf(stderr, "%d father\n", i);
+            break;
+        } 
+
+    }
+    return EXIT_SUCCESS;
+}
+```
+
+```shell
+./race-condition 100
+```
+
+以上程序输出结果并非先输出父进程， 后输出子进程的方式，出现了一些偶然性。
+
+所以， 不应对fork()之后执行父、子进程的特定顺序作任何假设。
+
+#### 同步信号以规避竞争条件
+
+以下代码用于进程间同步， 利用信号:
+
+```cpp
+#include <signal.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+
+static void handler(int sig)
+{
+    fprintf(stderr, "%ld got signal\n", getpid());
+
+}
+
+int main(int argc, char const *argv[])
+{
+    setbuf(stdout, NULL);
+    sigset_t blockMask, origMask;
+    sigemptyset(&blockMask);
+    sigaddset(&blockMask, SIGUSR1);
+    if (sigprocmask(SIG_BLOCK, &blockMask, &origMask) == -1){
+        return EXIT_FAILURE;
+    }
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    sa.sa_handler = handler;
+    // sa.sa_sigaction = NULL;// 设置将出现错误: User defined signal 1
+    if (sigaction(SIGUSR1, &sa, NULL) == -1){
+        return EXIT_FAILURE;
+    }
+
+    pid_t pidChild;
+    switch (pidChild = fork())
+    {
+    case -1:
+        fprintf(stderr, "fork failed!\n");
+        break;
+    case 0:
+        fprintf(stderr, "child[%ld] start\n", getpid());
+        sleep(2);
+        fprintf(stderr, "child[%ld] send signal\n", getpid());
+        if (kill(getppid(), SIGUSR1) == -1){
+            return EXIT_FAILURE;
+        }
+        fprintf(stderr, "child[%ld] over\n", getpid());
+
+        return EXIT_SUCCESS;
+    default:
+        {
+            fprintf(stderr, "father[%ld] start\n", getpid());
+
+            sigset_t emptyMask;
+            sigemptyset(&emptyMask);
+            if (sigsuspend(&emptyMask) == -1 && errno != EINTR){
+                return EXIT_FAILURE;
+            }
+
+            fprintf(stderr, "father[%ld] got signal\n", getpid());
+            if (sigprocmask(SIG_SETMASK, &origMask, NULL) == -1){
+                return EXIT_FAILURE;
+            }
+            break;
+        }
+    }       
+    return EXIT_SUCCESS;
+}
+```
 
