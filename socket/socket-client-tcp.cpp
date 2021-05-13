@@ -1,12 +1,10 @@
 ﻿// Test.cpp : Defines the entry point for the application.
 //
-
 #include <memory>
 #include<unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-
 #include <arpa/inet.h>
 #include <string.h>
 #include <signal.h>
