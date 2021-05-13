@@ -1,14 +1,14 @@
 CXX:=g++
 CXXFLAGS:= -g -Wall -c 
-
+TARGETS=ipc-posix-queue
 
 BIN_PATH=$(BINDIR)
 ROOT_PATH=$(shell pwd)
 INC_PATH=-I$(ROOT_PATH)
 SRC_PATH=$(ROOT_PATH)
-$(info SRC_PATH=$(SRC_PATH))
 # SRC_PATH+=$(ROOT_PATH)/src
 
+LIB=-lpthread
 
 
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard,$d/,$2) \
@@ -39,7 +39,7 @@ $(info targets=$(TARGETS))
 all:$(TARGETS) clean_intermediate
 
 $(TARGETS): %:%.o
-	$(CXX) $< -o $(BINDIR)/$@ 
+	$(CXX) $< -o $(BINDIR)/$@  $(LIB)
 
 $(OBJS_CPP): %.o:%.cpp
 	$(CXX) $(CXXFLAGS) $(INC_PATH) $< -o $@
