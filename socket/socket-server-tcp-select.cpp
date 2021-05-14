@@ -186,8 +186,8 @@ int main(int argc, char* argv[])
 		pthread_t thread;
 		if( 0 > pthread_create(&thread, NULL, _thread_func, &setFdAccepted))
 		{
-			
-			continue;
+			fprintf(stderr, "Error: pthread_create failed: %s\n", strerror(errno));
+			break;
 		}
 
 		pthread_detach(thread);
