@@ -1,5 +1,5 @@
 CXX:=g++
-CXXFLAGS:= -g -Wall -c 
+CXXFLAGS:= -g -Wall -c -std=c++11
 TARGETS=ipc-posix-queue
 
 BIN_PATH=$(BINDIR)
