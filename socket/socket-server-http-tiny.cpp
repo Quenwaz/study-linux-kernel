@@ -264,27 +264,33 @@ std::string make_http_response(const HttpRequest &httpReq, const std::string &re
 {
     char szContent[512] = {0};
     uint32_t code = 200;
-    if (httpReq.header.resource == "/")
+    if (httpReq.header.method == Header::GET)
     {
+        if (httpReq.header.resource == "/")
+        {
 
-        snprintf(szContent, sizeof(szContent),
-                "<HTML><TITLE>欢迎使用TinyHttp</TITLE><BODY><H1>亲爱的%s, 欢迎使用TinyHttp</H1><P>这是一个迷你HTTP服务</P></BODY></HTML>", remotehost.c_str());
-
-    }else{
-        char resourc_path[256] ={0};
-        snprintf(resourc_path, sizeof(resourc_path), "bin/static%s", httpReq.header.resource.c_str());
-        std::ifstream ifs(resourc_path);
-        if (!ifs.is_open())
-        {         
-            code = 404;
             snprintf(szContent, sizeof(szContent),
-                "<HTML><TITLE>欢迎使用TinyHttp</TITLE><BODY><H1>Not Found</H1></BODY></HTML>", remotehost.c_str());
+                    "<HTML><TITLE>欢迎使用TinyHttp</TITLE><BODY><H1>亲爱的%s, 欢迎使用TinyHttp</H1><P>这是一个迷你HTTP服务</P></BODY></HTML>", remotehost.c_str());
+
         }else{
-            ifs.read(szContent, sizeof(szContent));
-            ifs.close();
+            char resourc_path[256] ={0};
+            snprintf(resourc_path, sizeof(resourc_path), "bin/static%s", httpReq.header.resource.c_str());
+            std::ifstream ifs(resourc_path);
+            if (!ifs.is_open())
+            {         
+                code = 404;
+                snprintf(szContent, sizeof(szContent),
+                    "<HTML><TITLE>欢迎使用TinyHttp</TITLE><BODY><H1>Not Found</H1></BODY></HTML>", remotehost.c_str());
+            }else{
+                ifs.read(szContent, sizeof(szContent));
+                ifs.close();
+            }
+            
         }
+    }else{
         
     }
+
 
     return __make_http_response(code, "Text/Html; charset=UTF-8", szContent);
 }
