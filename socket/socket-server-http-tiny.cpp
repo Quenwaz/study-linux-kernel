@@ -40,6 +40,7 @@ struct Header
     } method;
 
     std::string resource;
+    std::string querystring;
     std::string httpversion;
     std::string host;
     std::vector<std::string> accepts;
@@ -121,7 +122,7 @@ size_t splitstr(std::vector<std::string> &vecResults, const std::string &strSour
         }
     }
 
-    vecResults.push_back(strSource.substr(poslast, strSource.size() + 1 - poslast - strSep.size()));
+    vecResults.push_back(strSource.substr(poslast, strSource.size()  - poslast));
     return vecResults.size();
 }
 
@@ -154,7 +155,17 @@ bool parse_http_request_header(const std::string &strHead, Header &header)
     {
         header.method = Header::POST;
     }
-    header.resource = request_info.at(1);
+
+    if (header.method == Header::GET){
+        std::vector<std::string> vecQuerys;
+        splitstr(vecQuerys, request_info.at(1), "?", 1);
+        if (vecQuerys.size() < 1){
+            return false;
+        }else if (vecQuerys.size() > 1){
+            header.querystring = vecQuerys.at(1);
+        }
+        header.resource = vecQuerys.at(0);
+    }
     header.httpversion = request_info.at(2);
 
     std::map<std::string, std::string> mapHeader;
