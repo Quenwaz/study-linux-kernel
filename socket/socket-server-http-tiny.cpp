@@ -323,10 +323,11 @@ void *_thread_func(void *pData)
             bool bClosed = false;
             if (FD_ISSET(*iter, &setwd))
             {
-                for (auto listIter = listMsgs.begin(); listIter != listMsgs.end(); ++listIter)
+                for (auto listIter = listMsgs.begin(); listIter != listMsgs.end();)
                 {
                     if (listIter->first != *iter)
                     {
+                        ++listIter;
                         continue;
                     }
 
@@ -338,10 +339,9 @@ void *_thread_func(void *pData)
                         break;
                     }
 
-                    fprintf(stderr, "send %d bytes msg: %s\n", _n_read, msg);
+                    // fprintf(stderr, "send %d bytes msg: %s\n", _n_read, msg);
                     bClosed = true;
-                    listMsgs.erase(listIter);
-                    break;
+                    listIter = listMsgs.erase(listIter);
                 }
             }
 
