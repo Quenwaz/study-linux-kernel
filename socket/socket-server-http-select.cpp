@@ -261,6 +261,9 @@ std::string __make_http_response(uint32_t status, const std::string &content_typ
     oss << "Content-Length: ";
     oss << strContent.size();
     oss << "\r\n";
+    oss << "Connection: ";
+    oss << "";
+    oss << "\r\n";
     oss << "\r\n";
     oss << strContent;
     return oss.str();
@@ -275,7 +278,6 @@ std::string make_http_response(const HttpRequest &httpReq, const std::string &re
     {
         if (httpReq.header.resource == "/")
         {
-
             snprintf(szContent, sizeof(szContent),
                     "<HTML><TITLE>欢迎使用Select-I/O of HTTP</TITLE><BODY><H1>亲爱的%s, 欢迎使用Select-I/O of HTTP</H1><P>这是一个迷你HTTP服务</P></BODY></HTML>", remotehost.c_str());
 
