@@ -15,7 +15,8 @@
 #include <set>
 #include <deque>
 #include <utility>
-
+#include <netdb.h>
+#include <signal.h>
 
 // inet_ntoa <=> inet_addr
 // ntohs <=> htons
@@ -28,6 +29,10 @@ void* _thread_func(void * pData)
 	std::deque<std::pair<int, std::string>> queMsgs;
 	for(;;)
 	{
+		if (pSetFdAccepted->empty()){
+			sleep(0);
+			continue;
+		}
 
 		fd_set setrd, setwd;
 		FD_ZERO(&setrd);
@@ -114,7 +119,7 @@ void* _thread_func(void * pData)
 	return NULL;
 }
 
-#include <netdb.h>
+
 std::string GetHostInfo()
 {
 	char szHost[128] = { 0 };
@@ -124,7 +129,7 @@ std::string GetHostInfo()
 	hostent* hostInfo = gethostbyname(szHost);
 	return std::string(inet_ntoa(*((struct in_addr*)hostInfo->h_addr_list[0])));
 }
-#include <signal.h>
+
 int main(int argc, char* argv[])
 {
 	if (argc != 2)
@@ -166,30 +171,29 @@ int main(int argc, char* argv[])
 	fprintf(stderr, "listen to: 0.0.0.0:%s\n", argv[1]);
 
 	std::set<int> setFdAccepted;
-	for (;;)
+	pthread_t thread;
+	if( 0 > pthread_create(&thread, NULL, _thread_func, &setFdAccepted))
 	{
-		struct sockaddr_in addr_client;
-		socklen_t _n_addr_client = 0;
-		const int sock_client = accept(sock, (struct sockaddr*)&addr_client, &_n_addr_client);
-		if (-1 == sock_client)
+		fprintf(stderr, "Error: pthread_create failed: %s\n", strerror(errno));
+	}
+	else {
+		for (;;)
 		{
-			continue;
+			struct sockaddr_in addr_client;
+			socklen_t _n_addr_client = 0;
+			const int sock_client = accept(sock, (struct sockaddr*)&addr_client, &_n_addr_client);
+			if (-1 == sock_client)
+			{
+				continue;
+			}
+			
+			fcntl(sock_client,F_SETFL,  fcntl(sock_client, F_GETFL) | O_NONBLOCK);
+			pthread_mutex_lock(&g_mtx);
+			setFdAccepted.insert(sock_client);
+			pthread_mutex_unlock(&g_mtx);
+
+			fprintf(stderr, "accept %s connect\n", inet_ntoa(addr_client.sin_addr));
 		}
-		
-		fcntl(sock_client,F_SETFL,  fcntl(sock_client, F_GETFL) | O_NONBLOCK);
-		pthread_mutex_lock(&g_mtx);
-		setFdAccepted.insert(sock_client);
-		pthread_mutex_unlock(&g_mtx);
-
-		fprintf(stderr, "accept %s connect\n", inet_ntoa(addr_client.sin_addr));
-
-		pthread_t thread;
-		if( 0 > pthread_create(&thread, NULL, _thread_func, &setFdAccepted))
-		{
-			fprintf(stderr, "Error: pthread_create failed: %s\n", strerror(errno));
-			break;
-		}
-
 		pthread_detach(thread);
 	}
 

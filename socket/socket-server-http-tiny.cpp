@@ -313,6 +313,11 @@ void *_thread_func(void *pData)
     std::list<std::pair<int, std::string>> listMsgs;
     for (;;)
     {
+        if (pSetFdAccepted->empty()){
+            sleep(0);
+            continue;
+        }
+
         fd_set setrd, setwd;
         FD_ZERO(&setrd);
         FD_ZERO(&setwd);
@@ -439,33 +444,33 @@ int main(int argc, char *argv[])
     fprintf(stderr, "listen to: 0.0.0.0:%s\n", argv[1]);
 
     std::set<int> setFdAccepted;
-    for (;;)
+
+    pthread_t thread;
+    if (0 > pthread_create(&thread, NULL, _thread_func, &setFdAccepted))
     {
-        struct sockaddr_in addr_client;
-        socklen_t _n_addr_client = 0;
-        const int sock_client = accept(sock, (struct sockaddr *)&addr_client, &_n_addr_client);
-        if (-1 == sock_client)
+        fprintf(stderr, "Error: pthread_create failed: %s\n", strerror(errno));
+    }
+    else
+    {
+        for (;;)
         {
-            continue;
+            struct sockaddr_in addr_client;
+            socklen_t _n_addr_client = 0;
+            const int sock_client = accept(sock, (struct sockaddr *)&addr_client, &_n_addr_client);
+            if (-1 == sock_client)
+            {
+                continue;
+            }
+
+            fcntl(sock_client, F_SETFL, fcntl(sock_client, F_GETFL) | O_NONBLOCK);
+            pthread_mutex_lock(&g_mtx);
+            setFdAccepted.insert(sock_client);
+            pthread_mutex_unlock(&g_mtx);
+
+            fprintf(stderr, "accept %s connect\n", inet_ntoa(addr_client.sin_addr));
         }
-
-        fcntl(sock_client, F_SETFL, fcntl(sock_client, F_GETFL) | O_NONBLOCK);
-        pthread_mutex_lock(&g_mtx);
-        setFdAccepted.insert(sock_client);
-        pthread_mutex_unlock(&g_mtx);
-
-        fprintf(stderr, "accept %s connect\n", inet_ntoa(addr_client.sin_addr));
-
-        pthread_t thread;
-        if (0 > pthread_create(&thread, NULL, _thread_func, &setFdAccepted))
-        {
-            fprintf(stderr, "Error: pthread_create failed: %s\n", strerror(errno));
-            break;
-        }
-
         pthread_detach(thread);
     }
-
     close(sock);
 
     return EXIT_SUCCESS;
