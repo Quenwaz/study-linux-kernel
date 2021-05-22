@@ -10,8 +10,14 @@
 #include <stdlib.h>
 #include <string>
 #include <errno.h>
+#include <netdb.h>
+#include <signal.h>
+
+
 // inet_ntoa <=> inet_addr
 // ntohs <=> htons
+
+static pthread_mutex_t g_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 
 void* _thread_func(void * pData)
@@ -27,10 +33,13 @@ void* _thread_func(void * pData)
 			break;
 		}
 		fprintf(stderr, "recv %d bytes msg: %s\n", _n_read, szMsg);
-		fprintf(stderr, "\n>:");
+		pthread_mutex_lock(&g_mtx);
+		fprintf(stderr, "\n%d >:", sock);
 
 		memset(szMsg, 0, _n_read);
+	
 		_n_read = read(STDIN_FILENO, szMsg, sizeof(szMsg));
+		pthread_mutex_unlock(&g_mtx);
 		if (_n_read <= 0)
 		{
 			continue;
@@ -57,7 +66,6 @@ void* _thread_func(void * pData)
 	return NULL;
 }
 
-#include <netdb.h>
 std::string GetHostInfo()
 {
 	char szHost[128] = { 0 };
@@ -67,12 +75,13 @@ std::string GetHostInfo()
 	hostent* hostInfo = gethostbyname(szHost);
 	return std::string(inet_ntoa(*((struct in_addr*)hostInfo->h_addr_list[0])));
 }
-#include <signal.h>
+
+
 int main(int argc, char* argv[])
 {
 	if (argc != 2)
 	{
-		fprintf(stderr, "Usage: socket-server-tcp [port] [backlog:options,default 4]\n");
+		fprintf(stderr, "Usage: socket-server-tcp-mt [port] [backlog:options,default 4]\n");
 		return EXIT_FAILURE;
 	}
 
