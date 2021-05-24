@@ -262,7 +262,7 @@ std::string __make_http_response(uint32_t status, const std::string &content_typ
     oss << strContent.size();
     oss << "\r\n";
     oss << "Connection: ";
-    oss << "";
+    oss << "close";
     oss << "\r\n";
     oss << "\r\n";
     oss << strContent;
