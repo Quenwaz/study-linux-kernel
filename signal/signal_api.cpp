@@ -1,3 +1,13 @@
+/**
+ * @file signal_api.cpp
+ * @author Quenwaz (404937333@qq.com)
+ * @brief 信号处理
+ * @version 0.1
+ * @date 2021-04-22
+ * 
+ * @copyright Copyright (c) 2021 Quenwaz
+ * 
+ */
 #include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
