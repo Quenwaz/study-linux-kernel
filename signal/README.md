@@ -1,14 +1,21 @@
 # 信号
 
 ## 概述
+
 信号是事件发生时对进程的通知机制。有时也称之为软件中断。信号与硬件中断相似之处在于打断了程序执行的正常流程。大多数情况下， 无法预测信号到达的精确时间。
 
 进程可向其他进程发送信号， 亦可向自身发送信号。然而发往进程的诸多信号， 通常源于内核。 引发内核为进程产生信号的事件通常有:
+
 - 硬件异常。如被0除、引用了无法访问的内存区域。
 - 键盘输入中断。 如输入中断字符(Ctrl + C)、暂停字符(Ctrl + Z)
 - 发生了软件事件。如定时器到期、文件描述符输出变有效等
 
-针对每个信号都有唯一的整数表示， 从1开始。 以SIGxxxx形式定义在文件<signal.h>中。其值因系统而异。 
+信号分为两大类:
+
+- 标准信号， Linux对标准信号的编号为1~31
+- 实时信号
+
+针对每个信号都有唯一的整数表示， 从1开始, 最大**NSIG**-1。 以SIGxxxx形式定义在文件<signal.h>中。其值因系统而异。 
 
 信号因某些事件产生。 然后被传递给某一进程， 进程会对之作出响应。 在产生和到达期间，信号处于等待(pending)状态。 通常一旦内核要调度该进程运行， 等待信号会马上送达。
 
@@ -16,6 +23,7 @@
 
 
 信号到达后， 因不同信号有如下默认操作之一:
+
 - 忽略信号: 内核将信号丢弃
 - 终止进程: 异常终止， 而非exit() 正常退出
 - 产生核心转储文件， 同时终止进程: 核心转储文件包含对进程的虚拟内存的镜像， 可将其加载到调试器中以检测进程终止时的状态。
@@ -23,6 +31,7 @@
 - 恢复暂停进程
 
 除了上述默认行为之外， 程序也能改变信号到达时的响应行为， 可有如下响应：
+
 - 采取默认行为
 - 忽略信号
 - 执行信号处理程序
@@ -69,7 +78,7 @@
 
 ## 信号处理
 
-UNIX提供了signal()和sigaction()来改变信号处置。signal的行为在不同的UNIX实现间存在差异， 因此考虑可移植性， sigaction()是建立信号处理器的首选API。
+UNIX提供了signal()和sigaction()来改变信号处置。signal的行为在不同的UNIX实现间存在差异， 因此考虑可移植性， **sigaction()是建立信号处理器的首选API**。
 
 ```c++
 #include <signal.h>
@@ -77,11 +86,14 @@ UNIX提供了signal()和sigaction()来改变信号处置。signal的行为在不
 // 若成功返回上一个信号处理函数， 否则返回SIG_ERR
 void (*signal(int sig, void(*handler)(int)))(int);
 ```
+
 在调用signal() 时， 可使用如下值来代替函数地址:
+
 - SIG_DEL：将信号重置为默认处理程序
 - SIG_IGN：忽略该信号
 
 如下设置终端中断处理程序:
+
 ```c++
 #include <stdio.h>
 #include <signal.h>
@@ -114,7 +126,9 @@ int main(int argc, char const *argv[])
 
 
 ## 发送信号
+
 `kill()` 系统调用用于发送一个信号，与shell中的kill命令类似。
+
 ```c
 #include <signal.h>
 
@@ -123,12 +137,14 @@ int kill(pid_t pid, int sig);
 ```
 
 当pid设置为以下值时， 将会对不同的进程发送sig信号:
+
 - 大于0: 发送信号给指定pid的进程
 - 等于0: 发送信号给与调用进程同组的每个进程
 - 小于-1: 会向id等于pid绝对值的进程组内所有下属进程发送信号
 - 等于-1: 发送信号给除调用进程以及init(ID为1)进程外的所有进程， 如果时特权级进程发起的这一调用， 那么会发给系统中除前述外的两个进程外的所有进程。
 
 进程发送信号需要一定的权限:
+
 - 特权级(CAP_KILL)进程可给任何进程发送信号
 - 同用户的进程间可以发送信号
 - 非特权进程可向会话中任何进程发送SIGCONT信号
@@ -138,6 +154,7 @@ int kill(pid_t pid, int sig);
 > 可使用kill检测进程是否存在， 只要将参数sig指定为0(空信号)， 则无信号发送。 再根据返回值和errno判断进程是否存在。若返回0或-1且errno为EPERM(无权限)时表示进程存在，否则进程不存在。
 
 其他发送信号的系统调用有`raise()` 及`killpg()` 
+
 ```c
 #include <signal.h>
 
@@ -163,8 +180,129 @@ int killpg(pid_t pgrp, int sig);
 
 ```
 
-显示信号描述的系统调用`char* strsignal(int sig)`
+显示信号描述的系统调用`char* strsignal(int sig)`, 但此接口未纳入SUSv3标准， 需要声明宏_GNU_SOURCE
+
+## 信号集操作
+
+信号集系统调用常用API
+
+```c
+#include <signal.h>
+
+/**
+ * @brief 清空信号集
+ * 
+ * @param set 信号集
+ * @return int 0 表示成功， -1 则失败
+ * @note 避免使用memset函数替代此函数使用
+ */
+int sigemptyset(sigset_t* set);
+
+/**
+ * @brief 初始化信号集， 使包含所有信号(包括实时信号)
+ * 
+ * @param set 信号集
+ * @return int 0 表示成功， -1 则失败
+ */
+int sigfillset(sigset_t * set);
+
+/**
+ * @brief 添加信号到信号集
+ * 
+ * @param set 信号集
+ * @param sig 信号值
+ * @return int 0 表示成功， -1 则失败
+ */
+int sigaddset(sigset_t* set, int sig);
+
+/**
+ * @brief 从信号集中删除信号
+ * 
+ * @param set 信号集
+ * @param sig 信号值
+ * @return int 0 表示成功， -1 则失败
+ */
+int sigdelset(sigset_t* set, int sig);
+
+/**
+ * @brief 判断信号集中是否存在指定信号
+ * 
+ * @param set 信号集
+ * @param sig 信号值
+ * @return int 1 表示存在， 0 表示不存在
+ */
+int sigismember(const sigset_t* set, int sig);
+
+//////////////////////////////////////
+//以下为非标准API, 需要声明宏_GNU_SOURCE//
+/////////////////////////////////////
+
+// 两信号集的交集与并集， 最终再dset中。 0 成功， -1 失败
+int sigandset(sigset_t * dset, sigset_t * left, sigset_t * right);
+int sigorset(sigset_t * dset, sigset_t * left, sigset_t * right);
+
+// 判断信号集是否为空，1 则为空， 0则不为空
+int sigisemptyset(const sigset_t * set);
+
+```
+
+## 阻塞信号及信号排队处理
+
+### 阻塞信号
+
+内核为每个进程维护了一个信号掩码， 即一组信号， 这一组信号将被阻塞， 如果向此进程发送阻塞的信号，将会被进入到一个等待队列中， 直到被解除阻塞为止。
+
+信号掩码实际属于线程属性， 每个线程可使用pthread_sigmask()函数来独立检查和修改其信号掩码。
+
+向信号掩码中添加信号有以下方式：
+
+- sigaction()中将会把自己阻塞， 触发设置了**SA_NODEFER**
+- sigaction()设置了sa_mask信号集， 则信号集中的信号被阻塞
+- 使用sigprocmask()系统调用
+
+下面介绍系统调用sigprocmask()：
+
+```c
+#include <signal.h>
+
+
+/**
+ * @brief 添加或删除阻塞信号
+ *
+ * @param how 动作标志
+ * @param set 待设置的信号集
+ * @param oldset 返回旧的信号集
+ * @return int 0 表示成功， -1 表示失败
+ *
+ * @remarks
+ * how 可选值:
+ *  - SIG_BLOCK 设置信号集到掩码中， 与当前已有的信号集并集
+ *  - SIG_UNBLOCK 从信号掩码中移除
+ *  - SIG_SETMASK 覆盖之前的信号掩码， 并返回之前的信号掩码
+ */
+int sigprocmask(int how, const sigset_t* set, sigset_t* oldset);
+```
+
+如果仅想获取当前信号掩码， 只需要设置set为空， 将会忽略how参数， 返回oldset参数。
+
+无法阻塞**SIGKILL**和**SIGSTOP**两个信号， 试图阻塞将会无效， sigprocmask也不会产生错误。
+
+以下代码片段可实现阻塞除**SIGKILL**和**SIGSTOP**以外的任何信号:
+
+```c
+sigfillset(&blockset);
+if(sigprocmask(SIG_BLOCK,&blockset, NULL) == -1){
+    exit(1);
+}
+```
+
+### 信号排队处理
 
 
 
+
+
+
+
+## 信号与线程
 
