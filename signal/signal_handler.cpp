@@ -1,9 +1,11 @@
 /**
- * @file signal_api.cpp
+ * @file signal_handler.cpp
  * @author Quenwaz (404937333@qq.com)
- * @brief 信号处理
+ * @brief 信号处理之signal
  * @version 0.1
  * @date 2021-04-22
+ * 
+ * 此程序演示了如何使用signal设置信号处理
  * 
  * @copyright Copyright (c) 2021 Quenwaz
  * 

@@ -1,5 +1,21 @@
 # 信号
 
+## 目录
+
+- [信号](#信号)
+  - [目录](#目录)
+  - [概述](#概述)
+  - [信号类型](#信号类型)
+  - [信号处理](#信号处理)
+  - [发送信号](#发送信号)
+  - [信号集操作](#信号集操作)
+  - [阻塞信号及信号排队处理](#阻塞信号及信号排队处理)
+    - [阻塞信号](#阻塞信号)
+    - [等待状态的信号及其排队处理](#等待状态的信号及其排队处理)
+  - [等待信号: pause()](#等待信号-pause)
+  - [信号与线程](#信号与线程)
+
+
 ## 概述
 
 信号是事件发生时对进程的通知机制。有时也称之为软件中断。信号与硬件中断相似之处在于打断了程序执行的正常流程。大多数情况下， 无法预测信号到达的精确时间。
@@ -92,6 +108,60 @@ void (*signal(int sig, void(*handler)(int)))(int);
 - SIG_DEL：将信号重置为默认处理程序
 - SIG_IGN：忽略该信号
 
+改变信号处置的另一个系统调用是`sigaction()`, 相较signal()更具灵活性。可获取更多信息、实施更多控制。
+
+```c
+#include <signal.h>
+
+/**
+ * \brief 对指定信号进行处理器设置及其他控制
+ * \param sig 指定进行处理的信号
+ * \param act 指定对信号的处置控制
+ * \param oldact 返回指定信号已有的处理
+ * \return 0 表示成功， -1 则失败
+ */
+int sigaction(int sig, const struct sigaction* act, struct sigaction* oldact);
+
+// struct sigaction 定义如下:
+struct sigaction
+{
+	/* Signal handler.  */
+#ifdef __USE_POSIX199309
+	union
+	{
+		/* Used if SA_SIGINFO is not set.  */
+		__sighandler_t sa_handler;
+		/* Used if SA_SIGINFO is set.  */
+		void (*sa_sigaction) (int, siginfo_t*, void*);
+	}
+	__sigaction_handler;
+# define sa_handler	__sigaction_handler.sa_handler
+# define sa_sigaction	__sigaction_handler.sa_sigaction
+#else
+	__sighandler_t sa_handler;
+#endif
+	__sigset_t sa_mask;
+	int sa_flags;
+	void (*sa_restorer) (void);
+};
+```
+
+上述结构体sigaction中的sa_handler 与 sa_sigaction都是信号处理的函数指针地址， 区别在于sa_sigaction将提供更多信息到信号处理当中。 同时sa_handler可指定为**SIG_IGN、SIG_DEL**之一，仅当sa_handler未指定前述的两个宏时， 参数sa_mask和sa_flags才有效。 最后一个参数sa_restorer不能用于应用程序， 此函数指针主要供内核使用，用于信号处理调用完后的恢复工作。
+
+**sa_mask**用于指定一组信号掩码， 在此掩码中的信号会在执行信号处理程序时被阻塞在等待信号集中，在信号处理程序执行完毕后，会被移除阻塞集合。主要**用于避免指定的信号中断当前信号处理程序的执行**。 同时，**指定的sig会自动将加入到信号掩码中**， 避免信号处理程序执行过程中信号再此抵达而被中断。如[等待状态的信号及其排队处理](#等待状态的信号及其排队处理) 所述， 被阻塞的信号被移除阻塞列表后，只会被触发一次。
+
+sa_flgs字段是一个位掩码， 可选值如下:
+
+- SA_NOCLDSTOP：若sig指定为SIGCHLD时， 则被信号停止或恢复的子进程将不会产生该信号。
+- SA_NOCLDWAIT：若sig为SIGCHLD时，子进程终止不会转化为僵尸进程
+- SA_NODEFER：捕获sig信号时， 不会自动将信号添加到阻塞掩码中
+- SA_ONSTACK：当调用指定的信号处理函数时， 使用sigaltstack()安装备选栈
+- SA_RESETHAND：捕获sig信号时，在执行信号处理前会将信号处理重置为默认(SIG_DEL)，即指定的信号处理为一次性的。
+- SA_RESTART：自动重启有信号处理器程序中断的系统调用
+- SA_SIGINFO：调用信号处理器程序时携带了额外参数。
+
+
+
 如下设置终端中断处理程序:
 
 ```c++
@@ -180,7 +250,7 @@ int killpg(pid_t pgrp, int sig);
 
 ```
 
-显示信号描述的系统调用`char* strsignal(int sig)`, 但此接口未纳入SUSv3标准， 需要声明宏_GNU_SOURCE
+显示信号描述的系统调用`char* strsignal(int sig)`, 但此接口未纳入SUSv3标准， 需要声明宏**_GNU_SOURCE**
 
 ## 信号集操作
 
@@ -250,9 +320,9 @@ int sigisemptyset(const sigset_t * set);
 
 ### 阻塞信号
 
-内核为每个进程维护了一个信号掩码， 即一组信号， 这一组信号将被阻塞， 如果向此进程发送阻塞的信号，将会被进入到一个等待队列中， 直到被解除阻塞为止。
+**内核为每个进程维护了一个信号掩码**， 即一组信号， 这一组信号将被阻塞， 如果向此进程发送阻塞的信号，将会被进入到一个等待队列中， 直到被解除阻塞为止。
 
-信号掩码实际属于线程属性， 每个线程可使用pthread_sigmask()函数来独立检查和修改其信号掩码。
+**信号掩码实际属于线程属性**， 每个线程可使用pthread_sigmask()函数来独立检查和修改其信号掩码。
 
 向信号掩码中添加信号有以下方式：
 
@@ -296,13 +366,31 @@ if(sigprocmask(SIG_BLOCK,&blockset, NULL) == -1){
 }
 ```
 
-### 信号排队处理
+### 等待状态的信号及其排队处理
 
+等待信号集只是一个掩码， 仅表面一个信号是否发生， 而不会表明其发生的次数。所以， 如果同一信号在阻塞状态下产生多次，只会记录在等待信号集一个掩码中。
 
+> 标准信号和实时信号之间的差异之一在于，对实时信号进行了排队处理。
 
+获取等待状态的信号集的系统调用为:
 
+```c
+#include <signal.h>
 
+// 0 表示成功， -1 则失败
+int sigpending(sigset_t *set);
+```
 
+## 等待信号: pause()
+
+```c
+#include <unistd.h>
+
+// 总是返回-1， 且errno为EINTR
+int pause(void);
+```
+
+调用pause()将暂停进程执行， 直到被信号中断为止。pause()被中断时返回-1， 且errno为EINTER
 
 ## 信号与线程
 

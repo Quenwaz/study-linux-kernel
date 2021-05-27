@@ -36,6 +36,7 @@ int main(int argc, char const *argv[])
         return 1;
     }
 
+
     /*Set up SIGQUIT signal processing.*/
     signal(SIGQUIT, signal_handler);
 
