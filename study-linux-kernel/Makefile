@@ -1,53 +1,56 @@
-CXX:=g++
-CXXFLAGS:= -g -Wall -c -std=c++11
+CC:=gcc
+CFLAGS:= -g -Wall -c -std=c11
 
 BIN_PATH=$(BINDIR)
 ROOT_PATH=$(shell pwd)
-INC_PATH=-I$(ROOT_PATH)
-SRC_PATH=$(ROOT_PATH)
-# SRC_PATH+=$(ROOT_PATH)/src
-
+INC_PATH=-I$(ROOT_PATH)/common
+SRC_PATH=$(SRCDIR)
+VPATH=$(SRC_PATH):$(OBJDIR)
 LIB=-lpthread -lcrypt
 
+# SRC_PATH+=$(ROOT_PATH)/src
+$(info BIN_PATH=$(BIN_PATH))
+$(info OBJDIR=$(OBJDIR))
 
 rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard,$d/,$2) \
-						$(filter $2, $d))
+						$(filter $2,$d))
 
 
 ###############################################
 # src
 ###############################################
-SRC_CPP=$(call rwildcard,$(SRC_PATH),%.cpp)
+SRC_C=$(call rwildcard,$(SRC_PATH),%.c)
+SRC_C:=$(SRCFILE)
+
+# SRC_C:=$(notdir $(SRC_C))
+$(info src=$(SRC_C))
 
 ###############################################
 # objects
 ###############################################
-OBJS_CPP=$(patsubst %.cpp, %.o, $(SRC_CPP))
-$(info objects=$(OBJS_CPP))
+OBJS_C=$(patsubst %.c,%.o, $(notdir $(SRC_C)))
+$(info objects=$(OBJS_C))
 
 
 ###############################################
 # targets
 ###############################################
-TARGETS=$(patsubst %.cpp, %, $(notdir $(SRC_CPP)))
+TARGETS=$(patsubst %.c,%, $(notdir $(SRC_C)))
 $(info targets=$(TARGETS))
 
 ###############################################
 # build
 ###############################################
-all:$(TARGETS) clean_intermediate
+all:$(TARGETS)
 
 $(TARGETS): %:%.o
-	$(CXX) $< -o $(BINDIR)/$@  $(LIB)
+	$(CC) $< -o $(BINDIR)/$@  $(LIB)
 
-$(OBJS_CPP): %.o:%.cpp
-	$(CXX) $(CXXFLAGS) $(INC_PATH) $< -o $@
+$(OBJS_C): %.o:%.c
+	$(CC) $(CFLAGS) $(INC_PATH) $< -o $(OBJDIR)/$@
 
-
-.PHONY: clean_intermediate
-clean_intermediate:
-	rm ./*.o
 
 .PHONY: clean
 clean: 
-	rm $(TARGETS) $(OBJS_CPP)
+	rm $(OBJDIR)/*.o
+	rm $(BINDIR)/*

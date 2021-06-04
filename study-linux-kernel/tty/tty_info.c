@@ -11,12 +11,13 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h> // for atoi
+#include "common.h"
 
-bool isdigit(const char *pszInput)
+boolean isdigit(const char *pszInput)
 {
     if (pszInput == NULL)
     {
-        return false;
+        return FALSE;
     }
 
     while (*pszInput != '\0' && *pszInput > '0' && *pszInput < '9')
@@ -34,7 +35,7 @@ int main(int argc, char const *argv[])
     }
 
     const int fd = atoi(argv[1]);
-    const bool istty = isatty(fd);
+    const boolean istty = isatty(fd);
     fprintf(stderr, "[%s] is%s tty.\n", argv[1], istty ? "" : " not a");
     istty && fprintf(stderr, "and the name is: [%s]\n", ttyname(fd));
     return 0;
