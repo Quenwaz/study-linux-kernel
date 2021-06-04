@@ -12,8 +12,6 @@ else
     GETOPT_ARGS=`getopt -o r:s:f: -al ROOT_DIR:,SRC_DIR:SRC_FILE: -- "$@"`
     eval set -- "$GETOPT_ARGS"
     #获取参数
-
-
     while [ -n "$1" ]
     do
         case "$1" in

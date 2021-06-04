@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "mkpipe failure...\n");
 		return EXIT_FAILURE;
 	}
-
+	
 	switch (fork())
 	{
 	case -1:

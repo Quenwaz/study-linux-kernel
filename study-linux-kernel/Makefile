@@ -6,7 +6,7 @@ ROOT_PATH=$(shell pwd)
 INC_PATH=-I$(ROOT_PATH)/common
 SRC_PATH=$(SRCDIR)
 VPATH=$(SRC_PATH):$(OBJDIR)
-LIB=-lpthread -lcrypt
+LIB=-lpthread -lcrypt -lm
 
 # SRC_PATH+=$(ROOT_PATH)/src
 $(info BIN_PATH=$(BIN_PATH))
@@ -21,14 +21,13 @@ rwildcard = $(foreach d, $(wildcard $1*), $(call rwildcard,$d/,$2) \
 ###############################################
 SRC_C=$(call rwildcard,$(SRC_PATH),%.c)
 SRC_C:=$(SRCFILE)
-
 # SRC_C:=$(notdir $(SRC_C))
 $(info src=$(SRC_C))
 
 ###############################################
 # objects
 ###############################################
-OBJS_C=$(patsubst %.c,%.o, $(notdir $(SRC_C)))
+OBJS_C=$(patsubst %.c,$(OBJDIR)/%.o, $(notdir $(SRC_C)))
 $(info objects=$(OBJS_C))
 
 
@@ -46,8 +45,9 @@ all: $(TARGETS) clean
 $(TARGETS): $(OBJS_C)
 	$(CC) $< -o $(BINDIR)/$@  $(LIB)
 
-$(OBJS_C): %.o:%.c
-	$(CC) $(CFLAGS) $(INC_PATH) $< -o $(OBJDIR)/$@
+# $(OBJS_C): %.o:%.c
+$(OBJS_C): %.o:$(SRC_C)
+	$(CC) $(CFLAGS) $(INC_PATH) $< -o $@
 
 .PHONY: cleanall
 cleanall:
