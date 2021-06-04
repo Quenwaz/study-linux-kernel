@@ -41,16 +41,20 @@ $(info targets=$(TARGETS))
 ###############################################
 # build
 ###############################################
-all:$(TARGETS)
+all: $(TARGETS) clean
 
-$(TARGETS): %:%.o
+$(TARGETS): $(OBJS_C)
 	$(CC) $< -o $(BINDIR)/$@  $(LIB)
 
 $(OBJS_C): %.o:%.c
 	$(CC) $(CFLAGS) $(INC_PATH) $< -o $(OBJDIR)/$@
 
+.PHONY: cleanall
+cleanall:
+	rm $(OBJDIR)/*.o || true
+	rm $(BINDIR)/* || true
 
+	
 .PHONY: clean
 clean: 
-	rm $(OBJDIR)/*.o
-	rm $(BINDIR)/*
+	rm $(OBJDIR)/*.o || true
