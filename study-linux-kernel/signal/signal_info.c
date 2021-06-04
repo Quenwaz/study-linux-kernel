@@ -8,11 +8,10 @@
  * @copyright Copyright (c) 2021 Quenwaz
  * 
  */
+#define _GNU_SOURCE  // for NSIG and strsignal
 #include <stdio.h>
 #include <signal.h>
-#define _GNU_SOURCE
 #include <string.h>
-
 
 int main(int argc, char const *argv[])
 {   

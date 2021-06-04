@@ -17,7 +17,9 @@
  */
 #include <stdio.h>
 #include <signal.h>
+#include <bits/sigaction.h> // for struct sigaction
 #include <unistd.h>
+#include "common.h"
 
 void sign_interrupt_handler(int signno)
 {
@@ -28,7 +30,7 @@ void sign_interrupt_handler(int signno)
 
 int main(int argc, char const *argv[])
 {
-    bool bSetSigQuit = argc > 1;
+    boolean bSetSigQuit = argc > 1;
 
     // 关闭缓冲
     setbuf(stdout, NULL);
