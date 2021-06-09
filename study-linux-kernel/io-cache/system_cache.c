@@ -27,13 +27,13 @@ void mkbigfile(const char* filepath, ssize_t filesize)
 
 int main(int argc, char const *argv[])
 {
-    const char* biffile = "./bin/big_1000m.txt";
-    mkbigfile(biffile, 1000);
+    const char* biffile = "./bin/big_100m.txt";
+    mkbigfile(biffile, 100);
     int fd = open(biffile,O_RDONLY, S_IRUSR | S_IWUSR | S_IRGRP |S_IWGRP);
     if (fd == -1){
         return 1;
     }
-    for (ssize_t i = 2;i <= 12; ++i)
+    for (ssize_t i = 0;i <= 15; ++i)
     {
         lseek(fd, 0, SEEK_SET);
         int n = floor(pow(2,i));
