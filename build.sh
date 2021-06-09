@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="usage: $0 -r[root path] -s[source path]\n\nargs:\n    -r,-ROOT_DIR-----makefile root path\n    -s,-SRC_DIR-----source file path\n\n"
+usage="usage: $0 -r[root path] -s[source path] -f[source file]\n\nargs:\n    -r,-ROOT_DIR-----makefile root path\n    -s,-SRC_DIR-----source file path\n\n"
 
 ROOT_DIR=""
 SRC_DIR=""
