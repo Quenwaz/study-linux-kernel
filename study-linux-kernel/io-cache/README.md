@@ -5,9 +5,15 @@
 - [I/O 缓冲](#io-缓冲)
   - [目录](#目录)
   - [概述](#概述)
-  - [stdio库的缓冲](#stdio库的缓冲)
+  - [用户态stdio库的缓冲](#用户态stdio库的缓冲)
     - [设置stdio流的缓冲模式](#设置stdio流的缓冲模式)
-  - [控制文件I/O的内核缓冲](#控制文件io的内核缓冲)
+  - [内核态控制文件I/O的内核缓冲](#内核态控制文件io的内核缓冲)
+    - [fsync](#fsync)
+    - [fdatasync](#fdatasync)
+    - [sync](#sync)
+    - [O_SYNC标志](#o_sync标志)
+  - [direct I/O: 不缓存直接I/O](#direct-io-不缓存直接io)
+  - [stdio库函数与系统调用文件描述符的转换](#stdio库函数与系统调用文件描述符的转换)
 
 
 ## 概述
@@ -19,7 +25,10 @@
 
 如果与文件发生大量的数据传输， 通过采用大块空间缓冲数据，以及执行更少的系统调用， 可极大提高I/O性能。实际表现查看源码[system_cache.c](system_cache.c)
 
-## stdio库的缓冲
+下图展示了用户态和内核态缓冲情况:
+![I/O缓冲](../img/io-cache.jpg)
+
+## 用户态stdio库的缓冲
 
 C语言I/O函数实现了当操作磁盘文件时， 缓冲大块数据以减少系统调用。 如: `fprintf、fscanf、fgets、fputs、fputc、fgetc` 
 
@@ -58,7 +67,7 @@ int fflush(FILE *stream);
 当`stream` 为NULL时， fflush将刷新所有缓冲区。fflush同时可应用与输入流。关闭相应流时，将自动刷新其stdio缓冲区。
 
 
-## 控制文件I/O的内核缓冲
+## 内核态控制文件I/O的内核缓冲
 
 **Synchronized I/O data integrity completion状态**旨在确保针对文件的一次更新传递了足够的信息(到磁盘), 以便于之后对数据的获取。主要存在两种状态:
 
@@ -67,9 +76,14 @@ int fflush(FILE *stream);
 
 **Synchronized I/O file integrity completion状态**是**Synchronized I/O data integrity completion状态**的超集。此状态将所有发生改变的文件元数据都传递到磁盘上。
 
-强制刷新内核缓冲区到文件是可能的。系统调用`fsync()` 将使缓冲数据与打开文件描述符fd相关所有元数据刷新到磁盘上。调用`fsync()` 会强制使文件处于**Synchronized I/O file integrity completion状态**。
+强制刷新内核缓冲区到文件是可能的。内核提供了如下方式:
+- fsync： 使处于Synchronized I/O file integrity completion状态
+- fdatasync： 使处于Synchronized I/O data integrity completion状态
+- sync: 所有文件相关数据都同步
+- 
 
-
+### fsync
+系统调用`fsync()` 将使缓冲数据与打开文件描述符fd相关所有元数据刷新到磁盘上。调用`fsync()` 会强制使文件处于**Synchronized I/O file integrity completion状态**。
 ```c
 #include <unistd.h>
 
@@ -79,6 +93,7 @@ int fsync(int fd);
 
 `fsync()`调用只有在同步传递完成后才返回。
 
+### fdatasync
 `fdatasync()`系统调用类似`fsync()` ，只是强调文件处于**Synchronized I/O data integrity completion状态**
 
 ```c
@@ -88,8 +103,9 @@ int fsync(int fd);
 int fdatasync(int fd);
 ```
 
-fdatasync()可能减少对磁盘的操作次数。因为fdatasync()仅仅要求数据更新， 而fsync()不仅是数据更新， 其元数据(如文件大小)亦需更新。
+`fdatasync()`可能减少对磁盘的操作次数。因为`fdatasync()`仅仅要求数据更新， 而`fsync()`不仅是数据更新， 其元数据(如文件大小)亦需更新。
 
+### sync
 `sync`系统调用会使包含更新文件信息的所有内核缓冲区(即数据块、指针块、元数据等)刷新到磁盘。
 
 ```c
@@ -99,3 +115,28 @@ fdatasync()可能减少对磁盘的操作次数。因为fdatasync()仅仅要求�
 void sync(void);
 ```
 
+### O_SYNC标志
+调用open()指定O_SYNC标志， 则会使后续的输出保持**Synchronized I/O file integrity completion状态**。
+其他标志`O_DSYNC`与`O_RSYNC`则分别使文件保存**Synchronized I/O data integrity completion状态**与**Synchronized I/O file integrity completion状态**。
+
+但在Linux 2.6.3中才实现了O_DSYNC， 而O_RSYNC可能在未来的版本中实现。
+
+## direct I/O: 不缓存直接I/O
+标志位`O_DIRECT` 用于直接I/O, 并非所有Linux文件系统和内核版本都支持该标志。 若open()使用该标志返回**EINVAL**则不支持。
+
+直接I/O需要对齐限制， 否则将导致**EINVAL**错误:
+- 用于传递数据的缓冲区， 其内存边界必须对齐位块大小的整数倍
+- 文件和设备的偏移量， 必须使块大小的整数倍。
+- 待传递数据的长度必须使块大小的整数倍。
+
+
+## stdio库函数与系统调用文件描述符的转换
+```c
+#include <stdio.h>
+
+// 返回文件描述符则成功， -1则发生错误
+int fileno(FILE* stream);
+
+// 返回文件指针则成功， NULL则发生错误
+FILE* fdopen(int fd, const char* mode);
+```
