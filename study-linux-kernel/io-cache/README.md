@@ -26,6 +26,7 @@
 如果与文件发生大量的数据传输， 通过采用大块空间缓冲数据，以及执行更少的系统调用， 可极大提高I/O性能。实际表现查看源码[system_cache.c](system_cache.c)
 
 下图展示了用户态和内核态缓冲情况:
+
 ![I/O缓冲](../img/io-cache.jpg)
 
 ## 用户态stdio库的缓冲
@@ -80,7 +81,8 @@ int fflush(FILE *stream);
 - fsync： 使处于Synchronized I/O file integrity completion状态
 - fdatasync： 使处于Synchronized I/O data integrity completion状态
 - sync: 所有文件相关数据都同步
-- 
+- O_SYNC标志： 使处于Synchronized I/O file integrity completion状态
+- O_DIRECT: 不缓冲
 
 ### fsync
 系统调用`fsync()` 将使缓冲数据与打开文件描述符fd相关所有元数据刷新到磁盘上。调用`fsync()` 会强制使文件处于**Synchronized I/O file integrity completion状态**。
