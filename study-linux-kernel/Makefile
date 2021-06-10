@@ -1,5 +1,5 @@
 CC:=gcc
-CFLAGS:= -g -Wall -c -std=c11
+CFLAGS:= -g -Wall -Wno-unused -Werror -c -std=c11
 
 BIN_PATH=$(BINDIR)
 ROOT_PATH=$(shell pwd)
