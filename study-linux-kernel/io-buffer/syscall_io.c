@@ -1,3 +1,13 @@
+/**
+ * @file syscall_io.c
+ * @author Quenwaz (404937333@qq.com)
+ * @brief 测试不同的缓冲大小，系统调用读写的性能表现
+ * @version 0.1
+ * @date 2021-06-09
+ * 实测发现， 随着buffer增大， 系统调用减少能有限增加读写性能
+ * @copyright Copyright (c) 2021 Quenwaz
+ * 
+ */
 #include <unistd.h>
 #include <fcntl.h> // for open
 #include <sys/stat.h>

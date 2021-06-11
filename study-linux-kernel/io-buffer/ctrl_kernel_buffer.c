@@ -1,3 +1,13 @@
+/**
+ * @file ctrl_kernel_buffer.c
+ * @author Quenwaz (404937333@qq.com)
+ * @brief 验证内核缓冲同步
+ * @version 0.1
+ * @date 2021-06-11
+ * 以下测试暂未得到预想结果， 每次输出立即被同步了(数据与元数据)
+ * @copyright Copyright (c) 2021 Quenwaz
+ * 
+ */
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
@@ -26,7 +36,7 @@ char* generate_string(ssize_t length)
 
 int main(int argc, char const *argv[])
 {
-    const char * filename = "./fucku.txt";
+    const char * filename = "./test.txt";
     int fd = open(filename, O_RDWR| O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP|S_IWGRP);
     if (fd == -1){
         fprintf(stderr, "create file error: %s\n", strerror(errno));
@@ -40,6 +50,7 @@ int main(int argc, char const *argv[])
     if (actual == -1){
          fprintf(stderr, "write file error: %s\n", strerror(errno));
     }
+    fsync(fd);
     close(fd);
     unlink(filename);
     return 0;
