@@ -1,5 +1,4 @@
 // #define _BSD_SOURCE
-#include <memory>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -8,7 +7,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <string>
+#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/select.h>

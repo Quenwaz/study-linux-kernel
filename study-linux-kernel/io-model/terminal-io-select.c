@@ -24,7 +24,7 @@ int main(int argc, char const *argv[])
     for (;;)
     {
         memset(&timeout, 0, sizeof(struct timeval));
-        timeout.tv_sec = 5;
+        timeout.tv_sec = 15;
 
         FD_ZERO(&readfds);
         FD_ZERO(&writefds);

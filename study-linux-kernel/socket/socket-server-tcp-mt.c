@@ -1,5 +1,4 @@
 ﻿// #define _BSD_SOURCE
-#include <memory>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -8,7 +7,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <string>
 #include <errno.h>
 #include <netdb.h>
 #include <signal.h>
@@ -64,16 +62,6 @@ void* _thread_func(void * pData)
 	fprintf(stderr, "\n[%lu] goodbye\n", pthread_self());
 	close(sock);
 	return NULL;
-}
-
-std::string GetHostInfo()
-{
-	char szHost[128] = { 0 };
-	gethostname(szHost, sizeof(szHost));
-
-
-	hostent* hostInfo = gethostbyname(szHost);
-	return std::string(inet_ntoa(*((struct in_addr*)hostInfo->h_addr_list[0])));
 }
 
 

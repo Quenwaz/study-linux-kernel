@@ -1,6 +1,5 @@
 ﻿
-#include <memory>
-#include<unistd.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -11,6 +10,7 @@
 #include <errno.h>
 #include <sys/select.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
 // inet_ntoa <=> inet_addr
 // ntohs <=> htons

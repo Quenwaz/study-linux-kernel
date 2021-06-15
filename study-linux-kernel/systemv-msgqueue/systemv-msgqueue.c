@@ -1,17 +1,17 @@
-#include <cstdlib>
-#include <cstdio>
+#include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h> // for memset
 #include <sys/msg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
-struct __msgbuf
-  {
-	  enum{
-		  MSG_LEN = 1024
-	  };
+enum {
+	MSG_LEN = 1024
+};
 
+struct __msgbuf
+{
     __syscall_slong_t mtype;	/* type of received/sent message */
     char mtext[MSG_LEN];		/* text of the message */
   };
@@ -33,13 +33,13 @@ int main(int argc, char* argv[])
 			return EXIT_FAILURE;
 		}
 		printf("pid: %d, msg id :%d\n", getpid(), msgId);
-		__msgbuf buf;
-		memset(&buf, 0, sizeof(__msgbuf));
-		auto msg = "test msg queue";
+		struct __msgbuf buf;
+		memset(&buf, 0, sizeof(struct __msgbuf));
+		const char* msg = "test msg queue";
 		if (argc > 1) msg = argv[1];
 		strncpy(buf.mtext, msg, strlen(msg));
 		buf.mtype = 1024;
-		msgsnd(msgId, &buf, sizeof(__msgbuf), 0);
+		msgsnd(msgId, &buf, sizeof(struct __msgbuf), 0);
 		printf("pid: %d, send msg done\n", getpid());
 	}
 		
@@ -48,9 +48,9 @@ int main(int argc, char* argv[])
 		break;
 	}	
 
-	printf("msg key: %ld\n", key);
+	printf("msg key: %d\n", key);
 	printf("pid: %d, msg id :%d\n", getpid(), msgId);
-	__msgbuf msg;
+	struct __msgbuf msg;
 	msg.mtype = 1024;
 	// The call will block until the specified type of message is received.
 	msgrcv(msgId,&msg, sizeof(msg), msg.mtype, 0);
