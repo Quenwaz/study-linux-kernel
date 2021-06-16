@@ -13,7 +13,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
-
+#include <fcntl.h>
+#include <errno.h>
 
 
 int main(int argc, char const *argv[])
@@ -23,9 +24,12 @@ int main(int argc, char const *argv[])
     memset(&pollfd[0], 0, sizeof(struct pollfd));
     pollfd[0].fd= STDIN_FILENO;
     pollfd[0].events = POLLIN;
+    
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK | fcntl(STDIN_FILENO, F_GETFL, 0));
+
     for(;;)
     {
-        int ret = poll(pollfd, 1, 15 * 1000);
+        const int ret = poll(pollfd, 1, 15 * 1000);
         if (ret < 0){
             return 1;
         }else if (ret == 0){
@@ -38,8 +42,11 @@ int main(int argc, char const *argv[])
             if(pollfd[i].revents & POLLIN)
             {
                 char msg[1024]={0};
-                read(STDIN_FILENO, msg, sizeof(msg));
-                write(STDOUT_FILENO, msg, sizeof msg);
+                if(read(STDIN_FILENO, msg, sizeof(msg)) == -1)
+                {
+                    fprintf(stderr, "error:%s\n", strerror(errno));
+                }
+                else write(STDOUT_FILENO, msg, sizeof msg);
             }
         }
     }

@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 
 int main(int argc, char const *argv[])
@@ -21,7 +22,7 @@ int main(int argc, char const *argv[])
     fd_set readfds, writefds;
     struct timeval timeout;
 
-
+    fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK | fcntl(STDIN_FILENO, F_GETFL, 0));
     for (;;)
     {
         memset(&timeout, 0, sizeof(struct timeval));
@@ -47,7 +48,10 @@ int main(int argc, char const *argv[])
         {
             if (FD_ISSET(fd,&readfds))
             {
-                read(STDIN_FILENO, msg, sizeof(msg));
+                if(read(STDIN_FILENO, msg, sizeof(msg)) == -1)
+                {
+                    fprintf(stderr, "error:%s\n", strerror(errno));
+                }
             }else if (FD_ISSET(fd,&writefds) && strlen(msg) > 0){
                 write(STDOUT_FILENO, msg, sizeof msg);
             }
