@@ -4,7 +4,7 @@
  * @brief 终端select I/O
  * @version 0.1
  * @date 2021-06-15
- * 此示例展示了无阻塞终端的用法
+ * 此示例展示了多路复用I/O select方式进行无阻塞终端的用法
  * @copyright Copyright (c) 2021 Quenwaz
  * 
  */

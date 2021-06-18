@@ -4,7 +4,7 @@
  * @brief  终端poll I/O
  * @version 0.1
  * @date 2021-06-15
- * 
+ * 此示例展示了多路复用I/O poll方式进行无阻塞终端的用法
  * @copyright Copyright (c) 2021 Quenwaz
  * 
  */

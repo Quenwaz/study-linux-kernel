@@ -4,7 +4,9 @@
  * @brief 终端输入之信号驱动I/O
  * @version 0.1
  * @date 2021-06-18
- * 需使用实时信号， 否则不会排队造成丢失
+ * 
+ * 此示例演示了使用信号驱动I/O方式对终端输入文件I/O的异步通知
+ * 需使用实时信号， 否则不会排队造成丢失。
  * @copyright Copyright (c) 2021 Quenwaz
  * 
  */
@@ -48,7 +50,7 @@ int main(int argc, char const *argv[])
         return 1;
     }
 
-    // step 4 循环阻塞非SIG_DRIVE_IO信号， 以等待SIG_DRIVE_IO信号
+    // step 4：循环阻塞非SIG_DRIVE_IO信号， 以等待SIG_DRIVE_IO信号
     sigset_t set_block, setold;
     sigemptyset(&set_block);
     sigaddset(&set_block, SIG_DRIVE_IO);
