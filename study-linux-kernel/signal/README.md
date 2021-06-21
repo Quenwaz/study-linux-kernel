@@ -428,5 +428,5 @@ void handler(int sig)
 - 调用_exit()终止进程， 而非exit(), 因为exit()会调用不安全函数， 如刷新stdio等。
 - 使用信号kill发送信号终止进程
 - 在信号处理中执行非本地跳转
-- 使用abort()终止进程，并产生核心转储。
+- 使用abort()终止进程，并产生核心转储。abort产生SIGABORT信号来终止进程，会刷新stdio流。
 
