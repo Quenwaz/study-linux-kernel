@@ -18,6 +18,7 @@
     - [信号处理器函数内部对errno的使用](#信号处理器函数内部对errno的使用)
     - [全局变量与sig_atomic_t数据类型](#全局变量与sig_atomic_t数据类型)
   - [终止信号处理](#终止信号处理)
+  - [在备选栈中处理信号: sigaltstack()](#在备选栈中处理信号-sigaltstack)
 
 
 ## 概述
@@ -428,5 +429,23 @@ void handler(int sig)
 - 调用_exit()终止进程， 而非exit(), 因为exit()会调用不安全函数， 如刷新stdio等。
 - 使用信号kill发送信号终止进程
 - 在信号处理中执行非本地跳转
-- 使用abort()终止进程，并产生核心转储。abort产生SIGABORT信号来终止进程，会刷新stdio流。
+- 使用abort()终止进程，并产生核心转储。abort产生SIGABRT信号来终止进程，会刷新stdio流。 若进程处理SIGABRT仍未终止，abort()将会对信号SIGABRT设置为默认处理(SIG_DEL),并再次发送SIGABRT信号，以确保进程被杀死。
+
+## 在备选栈中处理信号: sigaltstack()
+在调用信号处理器函数时， 内核会在进程栈中为器创建栈帧, 用以信号处理器函数的执行。 但如果栈内存不足时，将无法为信号处理函数创建栈帧，从而导致信号处理函数无法执行。 而一般栈溢出时都将引发`SIGSEGV`信号的发生，此时也将无法处理信号`SIGSEGV`。于是就有了**备选栈**的概念。 **备选栈可以为静态分配亦可在堆上动态分配**。 分配接口如下:
+
+```c
+#include <signal.h>
+
+typedef struct{
+  void   *ss_sp;      /*备选栈的地址*/
+  int     ss_flags;   /*通常为：SS_ONSTACK>创建; SS_DISABLE>禁用*/
+  size_t  ss_size;    /*备选栈内存大小*/
+};
+
+// 返回0则成功， -1表示发生错误
+int sigaltstack(const struct stack_t* sigstack, struct stack_t * old_sigstack);
+```
+
+> 当进程已经在备选信号栈上运行时， 调用sigaltstack()来创建一个新的备选信号栈将引发错误(`EPERM`)
 
