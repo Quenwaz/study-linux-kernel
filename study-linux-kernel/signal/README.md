@@ -19,6 +19,8 @@
     - [全局变量与sig_atomic_t数据类型](#全局变量与sig_atomic_t数据类型)
   - [终止信号处理](#终止信号处理)
   - [在备选栈中处理信号: sigaltstack()](#在备选栈中处理信号-sigaltstack)
+  - [系统调用的中断和重启](#系统调用的中断和重启)
+    - [为信号修改SA_RESTART标志](#为信号修改sa_restart标志)
 
 
 ## 概述
@@ -159,11 +161,11 @@ sa_flgs字段是一个位掩码， 可选值如下:
 
 - SA_NOCLDSTOP：若sig指定为SIGCHLD时， 则被信号停止或恢复的子进程将不会产生该信号。
 - SA_NOCLDWAIT：若sig为SIGCHLD时，子进程终止不会转化为僵尸进程
-- SA_NODEFER：捕获sig信号时， 不会自动将信号添加到阻塞掩码中
+- SA_NODEFER：捕获sig信号时， 不会自动将sig信号添加到阻塞掩码中
 - SA_ONSTACK：当调用指定的信号处理函数时， 使用sigaltstack()安装备选栈
 - SA_RESETHAND：捕获sig信号时，在执行信号处理前会将信号处理重置为默认(SIG_DEL)，即指定的信号处理为一次性的。
 - SA_RESTART：自动重启有信号处理器程序中断的系统调用
-- SA_SIGINFO：调用信号处理器程序时携带了额外参数。
+- SA_SIGINFO：调用信号处理器程序时携带了额外参数。信号处理函数指针为`sa_sigaction`
 
 
 
@@ -448,4 +450,46 @@ int sigaltstack(const struct stack_t* sigstack, struct stack_t * old_sigstack);
 ```
 
 > 当进程已经在备选信号栈上运行时， 调用sigaltstack()来创建一个新的备选信号栈将引发错误(`EPERM`)
+
+## 系统调用的中断和重启
+考虑如下场景:
+1. 为某信号创建处理器函数
+2. 发起一个阻塞的系统调用， 如从终端设备调用read()就会阻塞直到有数据为止
+3. 当系统调用阻塞期间， 信号到达，调用被中断。
+
+当以上信号处理器调用完毕后会发生什么？默认情况， 系统调用失败，errno置为EINTR。当然如果希望遭到中断的系统调用得以继续运行可执行如下代码:
+
+```c
+while((cnt = read(fd, buf, BUF_SIZE)) == -1 && errno==EINTR)
+  continue;
+```
+
+当然为了避免系统调用被中断， 可以指定`SA_RESTART`标志的sigaction()来创建信号处理函数。但SA_RESTART并非对所有系统调用有效。仅在以下情况有效：
+
+- 操作“慢速(slow)”设备时， I/O系统调用中断后可自动重启调用。 **慢速设备包括终端、管道、FIFO、套接字**。对此类设备的I/O操作经历中断后立即返回，并返回已成功传递数据的字节数。支持的系统调用`read()`、`write()`、`readv()`、`writev()`和`ioctl()`。
+- 等待子进程的系统调用：wait()、waitpid()、wait3()、wait4()、waitid()。
+- socket 相关系统调用
+- POSIX消息队列相关系统调用
+- [更多](https://man7.org/linux/man-pages/man7/signal.7.html)
+
+以下系统调用中断后则不会重启， 即便指定了SA_RESTART
+- poll()、ppoll()、select()和pselect()这些I/O多路复用调用
+- epoll_wait()和epoll_pwait()系统调用
+- [更多](https://man7.org/linux/man-pages/man7/signal.7.html)
+
+### 为信号修改SA_RESTART标志
+
+函数`siginterrupt()`用于改变信号的SA_RESTART设置
+```c
+#include <signal.h>
+
+/**
+ * @brief 设置信号是否中断(重启)系统调用
+ * 
+ * @param sig 指定信号
+ * @param flag 1 则中断且不重启， 0则重启系统调用
+ * @return int 0则成功， -1表示错误发生
+ */
+int siginterrupt(int sig, int flag);
+```
 
