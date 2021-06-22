@@ -457,7 +457,7 @@ int sigaltstack(const struct stack_t* sigstack, struct stack_t * old_sigstack);
 2. 发起一个阻塞的系统调用， 如从终端设备调用read()就会阻塞直到有数据为止
 3. 当系统调用阻塞期间， 信号到达，调用被中断。
 
-当以上信号处理器调用完毕后会发生什么？默认情况， 系统调用失败，errno置为EINTR。当然如果希望遭到中断的系统调用得以继续运行可执行如下代码:
+当以上信号处理器调用完毕后会发生什么？默认情况， 系统调用失败，errno置为`EINTR`。当然如果希望遭到中断的系统调用得以继续运行可执行如下代码:
 
 ```c
 while((cnt = read(fd, buf, BUF_SIZE)) == -1 && errno==EINTR)
@@ -492,4 +492,5 @@ while((cnt = read(fd, buf, BUF_SIZE)) == -1 && errno==EINTR)
  */
 int siginterrupt(int sig, int flag);
 ```
+
 
