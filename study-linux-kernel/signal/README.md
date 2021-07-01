@@ -7,6 +7,8 @@
   - [概述](#概述)
   - [信号类型](#信号类型)
   - [信号处理](#信号处理)
+    - [signal()](#signal)
+    - [sigaction()](#sigaction)
   - [发送信号](#发送信号)
   - [信号集操作](#信号集操作)
   - [阻塞信号及信号排队处理](#阻塞信号及信号排队处理)
@@ -21,6 +23,7 @@
   - [在备选栈中处理信号: sigaltstack()](#在备选栈中处理信号-sigaltstack)
   - [系统调用的中断和重启](#系统调用的中断和重启)
     - [为信号修改SA_RESTART标志](#为信号修改sa_restart标志)
+  - [核心转储文件](#核心转储文件)
 
 
 ## 概述
@@ -101,6 +104,7 @@
 
 ## 信号处理
 
+### signal()
 UNIX提供了signal()和sigaction()来改变信号处置。signal的行为在不同的UNIX实现间存在差异， 因此考虑可移植性， **sigaction()是建立信号处理器的首选API**。
 
 ```c++
@@ -115,6 +119,7 @@ void (*signal(int sig, void(*handler)(int)))(int);
 - SIG_DEL：将信号重置为默认处理程序
 - SIG_IGN：忽略该信号
 
+### sigaction()
 改变信号处置的另一个系统调用是`sigaction()`, 相较signal()更具灵活性。可获取更多信息、实施更多控制。
 
 ```c
@@ -464,7 +469,7 @@ while((cnt = read(fd, buf, BUF_SIZE)) == -1 && errno==EINTR)
   continue;
 ```
 
-当然为了避免系统调用被中断， 可以指定`SA_RESTART`标志的sigaction()来创建信号处理函数。但SA_RESTART并非对所有系统调用有效。仅在以下情况有效：
+当然为了避免系统调用被中断， 可以指定`SA_RESTART`标志的`sigaction()`来创建信号处理函数。但`SA_RESTART`并非对所有系统调用有效。仅在以下情况有效：
 
 - 操作“慢速(slow)”设备时， I/O系统调用中断后可自动重启调用。 **慢速设备包括终端、管道、FIFO、套接字**。对此类设备的I/O操作经历中断后立即返回，并返回已成功传递数据的字节数。支持的系统调用`read()`、`write()`、`readv()`、`writev()`和`ioctl()`。
 - 等待子进程的系统调用：wait()、waitpid()、wait3()、wait4()、waitid()。
@@ -494,3 +499,10 @@ int siginterrupt(int sig, int flag);
 ```
 
 
+## 核心转储文件
+**核心转储是一个内含进程终止时内存映像的一个文件**。将内存映像加载到调试器中，即可查明信号到达时程序代码和数据的状态。 *特定信号会引发进程创建一个核心转储文件并终止运行*。
+
+为了避免不生成核心转储文件， 通常执行如下命令取消限制核心转储文件的大小:
+```shell
+unlimit -c unlimited
+```
