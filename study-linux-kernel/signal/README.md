@@ -14,7 +14,9 @@
   - [阻塞信号及信号排队处理](#阻塞信号及信号排队处理)
     - [阻塞信号](#阻塞信号)
     - [等待状态的信号及其排队处理](#等待状态的信号及其排队处理)
-  - [等待信号: pause()](#等待信号-pause)
+  - [等待信号](#等待信号)
+    - [pause()](#pause)
+    - [sigsuspend()](#sigsuspend)
   - [信号与线程](#信号与线程)
     - [可重入和非可重入函数](#可重入和非可重入函数)
     - [信号处理器函数内部对errno的使用](#信号处理器函数内部对errno的使用)
@@ -30,6 +32,10 @@
     - [同步信号与异步信号](#同步信号与异步信号)
     - [何时传递一个信号？](#何时传递一个信号)
     - [解除对多个信号的阻塞时， 信号的传递顺序](#解除对多个信号的阻塞时-信号的传递顺序)
+  - [实时信号](#实时信号)
+    - [排队实时信号存在数量限制](#排队实时信号存在数量限制)
+    - [发送实时信号](#发送实时信号)
+    - [处理实时信号](#处理实时信号)
 
 
 ## 概述
@@ -109,9 +115,14 @@
 | SIGXFSZ   | 突破对文件大小的限制                                         | core   |
 
 ## 信号处理
+UNIX提供了`signal()`和`sigaction()`来改变信号处置。signal的行为在不同的UNIX实现间存在差异， 因此考虑可移植性， **sigaction()是建立信号处理器的首选API**。
+
+其次， 不推荐使用`signal()`的理由:
+- 会在进入信号处理函数时，将信号处置重置为默认行为(**SA_RESETHAND**)。 
+- 在信号处理器执行期间， 不会对新产生的信号进行阻塞。如果同类信号在执行期间再度进入， 将会导致递归调用(**SA_NODEFER**)。
+- 在某些实现中， 存在不对系统调用重启功能(**SA_RESTART**)
 
 ### signal()
-UNIX提供了signal()和sigaction()来改变信号处置。signal的行为在不同的UNIX实现间存在差异， 因此考虑可移植性， **sigaction()是建立信号处理器的首选API**。
 
 ```c++
 #include <signal.h>
@@ -399,8 +410,9 @@ if(sigprocmask(SIG_BLOCK,&blockset, NULL) == -1){
 int sigpending(sigset_t *set);
 ```
 
-## 等待信号: pause()
+## 等待信号
 
+### pause()
 ```c
 #include <unistd.h>
 
@@ -409,6 +421,10 @@ int pause(void);
 ```
 
 调用pause()将暂停进程执行， 直到被信号中断为止。pause()被中断时返回-1， 且errno为EINTER
+
+### sigsuspend()
+在说明此系统调用之前， 先老看看`pause()`存在的不足:
+
 
 ## 信号与线程
 
@@ -564,7 +580,93 @@ ls -l core  //  查看文件
 - 系统调用完成时(信号会导致阻塞的系统调用提前完成)
 
 ### 解除对多个信号的阻塞时， 信号的传递顺序
-如果进程使用sigprocmask()解除了对多个等待信号的阻塞， 那么这些信号会立即传递给该进程。 而传递顺序Linux内核按照信号值的升序方式传递，即最小的最先传递。 不论信号发生先后。
+如果进程使用sigprocmask()解除了对多个等待信号的阻塞， 那么这些信号会立即传递给该进程。 而传递顺序Linux内核按照信号值的升序方式传递，即最小的最先传递。 不论信号发生先后。但是切勿对传递标准信号的特定顺序产生任何依赖， 因为其传递顺序由内核具体实现决定。SuSv3并未对顺序做出规定。
+**实时信号将按照信号发生先后顺序传递**。
+
+另外， 当存在多个解除阻塞的信号待传递时， 如果此时信号处理器函数执行期间发生了内核态和用户态之间的切换， 那么将会被中断执行，转而执行第二个信号处理器函数，如此递进。 如下图示:
+
+![信号传递](img/signal-transmission.jpg)
+
+
+## 实时信号
+
+实时信号一定程度上弥补了标准信号的诸多限制，相对标准信号的优势：
+- 实时信号范围多达32个， 而标准信号仅提供了SIGUSER1和SIGUSR2
+- 实时信号采取对梨花管理。同一信号多次发给进程， 将会被多次传递。
+- 发送实时信号， 可指定附加数据
+- 实时信号传递顺序得到了保障， 对于不同信号， 其值越小优先级越高。 对于同类信号按照发送顺序执行。
+
+> 切勿以常量形式定义实时信号值， 建议形式为`SIGRTMIN+x`, 如`SIGRGMIN+1`。  以下形式最为保险:
+
+```c
+#if SIGRTMIN+100 > SIGRTMAX
+#error "Not enough realtime signals"
+#endif
+```
+
+### 排队实时信号存在数量限制
+每个进程可排队实时信号数量存在上限，可借助宏"rust-client.engine": "rls"获取限制， 或是发起如下调用亦可：
+
+```lim=sysconf(_SC_SIGQUEUE_MAX);```
+
+
+
+### 发送实时信号
+系统调用sigqueue()将由sig指定的实时信号发送给由pid指定的进程。
+
+```c
+#define _POSIX_C_SOURCE 199309
+#include <signal.h>
+
+union sigval{
+  int sival_int;
+  void *sival_ptr; // 信号处理中很少使用， 因为指针是在进程范围内的， 对另一进程将毫无意义。
+};
+
+/**
+ * @brief 发送实时信号
+ * 
+ * @param pid 指定进程id
+ * @param sig 指定实时信号值
+ * @param value 附加数据
+ * @return int 返回0标识成功， -1表示发生错误
+ */
+int sigqueue(pid_t pid, int sig, const union sigval value);
+```
+
+通常情况若当前进程排队信号达到上限， **sigqueue()** 调用将会失败， 同时将errno置为**EAGAIN**。
+
+### 处理实时信号
+
+为实时信号建立处理器函数时， 接手进程应以**SA_SIGINFO**标志发起对**sigaction()**的调用。以便于接收实时信号的附加据。
+以下代码片段为处理实时信号的惯用法:
+
+```c
+struct sigaction act;
+
+sigemptyset(&act.sa_mask);
+act.sa_sigaction = handler;
+act.sa_flags = SA_RESTART | SA_SIGINFO;
+
+if (sigaction(SIGRTMIN + 5, &act, NULL) == -1){
+  exit(1);
+}
+```
+
+实时信号的处理函数基本格式为:
+```c
+void handler(int sig,  siginfo_t * siginfo, void * data)
+{
+}
+```
+
+其中`siginfo_t`结构体字段如下:
+- si_signo 表示信号值
+- si_code 表示信号来源。 对于sigqueue()发送的实时信号， 其值总为`SI_QUEUE`。 其他值参考[man page](https://man7.org/linux/man-pages/man2/sigaction.2.html)
+- si_value 为sigqueue()发送信号时传递的值
+- si_pid 和 si_uid表示信号发送进程的进程ID和实际用户ID
+
+
 
 
 
