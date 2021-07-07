@@ -17,6 +17,7 @@
   - [等待信号](#等待信号)
     - [pause()](#pause)
     - [sigsuspend()](#sigsuspend)
+    - [同步等待信号](#同步等待信号)
   - [信号与线程](#信号与线程)
     - [可重入和非可重入函数](#可重入和非可重入函数)
     - [信号处理器函数内部对errno的使用](#信号处理器函数内部对errno的使用)
@@ -36,6 +37,7 @@
     - [排队实时信号存在数量限制](#排队实时信号存在数量限制)
     - [发送实时信号](#发送实时信号)
     - [处理实时信号](#处理实时信号)
+  - [通过文件描述符获取信号](#通过文件描述符获取信号)
 
 
 ## 概述
@@ -420,11 +422,115 @@ int sigpending(sigset_t *set);
 int pause(void);
 ```
 
-调用pause()将暂停进程执行， 直到被信号中断为止。pause()被中断时返回-1， 且errno为EINTER
+调用pause()将暂停进程执行， 直到被信号中断为止。pause()被中断时返回-1， 且errno为`EINTER`
 
 ### sigsuspend()
 在说明此系统调用之前， 先老看看`pause()`存在的不足:
+```c
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <signal.h>
+#include <unistd.h> // for pause
 
+void handler(int sig)
+{
+    fprintf(stderr, "Received signal %d\n", sig);
+}
+int main(int argc, char const *argv[])
+{
+    sigset_t set_block, set_previous;
+    sigemptyset(&set_block);
+    sigaddset(&set_block, SIGINT);
+
+    struct sigaction sa;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_handler = handler;
+    if (sigaction(SIGINT, &sa, NULL) == -1){
+        return 1;
+    }
+
+    if (sigprocmask(SIG_BLOCK, &set_block, &set_previous) == -1){
+        return 1;
+    }
+
+    // 阻塞信号， 避免打断此处的代码执行
+
+    if (sigprocmask(SIG_SETMASK, &set_previous, NULL) == -1){
+        return 1;
+    }
+
+    // 此处模拟， 解除阻塞后在此间隙收到了信号。 
+    // 将会导致代码逻辑不会按照预期进行。 
+    // 预期是调用pause()后信号才到达。
+    kill(getpid(), SIGINT);
+
+    pause();
+    return 0;
+}
+```
+
+如代码所示在解除阻塞后可能出现信号来临导致代码不按预期执行。
+
+`sigsuspend()`解决了此问题， 因为`sigsuspend()`将以下三个步骤当作一个原子操作了:
+
+```c
+sigprocmask(SIG_SETMASK, &mask, &prevMask);
+pause();
+sigprocmask(SIG_SETMASK, &prevMask, NULL);
+```
+
+`sigsuspend()` 声明如下:
+```c
+#include <signal.h>
+
+// mask为等待过程中处于阻塞的信号， 等待结束时解除
+// 返回-1且errno为EINTR表示信号来临， 若mask地址无效， 则返回-1， errno为EFAULT。
+int sigsuspend(const sigset_t* mask);
+```
+
+### 同步等待信号
+
+`sigwaitinfo()` 声明如下:
+
+```c
+#include <signal.h>
+
+
+/**
+ * @brief 同步等待信号(包括标准信号和实时信号)
+ * 
+ * @param set 设置等待的信号集
+ * @param info 附加数据
+ * @return int 收到信号的信号值， 或-1表示错误发生
+ */
+int sigwaitinfo(const sigset_t* set, siginfo_t* info);
+```
+
+由于此系统调用是为了获取等待信号， 所以在调用之前**需将set中指定的信号阻塞**。 避免信号未被阻塞的信号在调用sigwaitinfo前后的时间片到达， 导致执行其默认行为或未定义其行为。
+
+另外相似系统调用`sigtimedwait()`与`sigwaitinfo()`类似， 区别在于`sigtimedwait()`可指定等待时限。声明如下:
+
+```c
+#include <signal.h>
+
+
+struct timespec{
+    time_t tv_sec; // 秒
+    long tv_nsec;  // 纳秒
+};
+
+
+/**
+ * @brief 同步等待信号， 存在等待信号或超时时返回
+ * 
+ * @param set 等待的信号集合
+ * @param info 附加数据
+ * @param timeout 超时时间， 当此参数指定为NULL时，其效果与sigtimedwait()一致
+ * @return int 返回信号值或-1 ， -1表示错误发生
+ */
+int sigtimedwait(const sigset_t *set, siginfo_t *info, const struct timespec *timeout);
+```
 
 ## 信号与线程
 
@@ -665,6 +771,29 @@ void handler(int sig,  siginfo_t * siginfo, void * data)
 - si_code 表示信号来源。 对于sigqueue()发送的实时信号， 其值总为`SI_QUEUE`。 其他值参考[man page](https://man7.org/linux/man-pages/man2/sigaction.2.html)
 - si_value 为sigqueue()发送信号时传递的值
 - si_pid 和 si_uid表示信号发送进程的进程ID和实际用户ID
+
+
+## 通过文件描述符获取信号
+
+非标准系统调用`signalfd()`, 用以将信号获取绑定到文件描述符上，可通过读取文件描述符获得与在`sigwaitinfo()`一样的效果。声明如下:
+
+```c
+#include <sys/signalfd.h>
+
+/**
+ * @brief 创建与信号关联的文件描述符
+ *  用于同步读取信号
+ * @param fd 指定文件描述符， 为-1时将返回新的文件描述符
+ * @param mask 指定期望获得的信号
+ * @param flags 0 或 SFD_CLOEXEC(类似O_CLOEXEC) 或 SFD_NONBLOCK(类似O_NONBLOCK)
+ * @return int 返回文件描述符或-1 ， -1时表示错误发生
+ */
+int signalfd(int fd, const sigset_t* mask, int flags);
+```
+
+利用系统调用`read()`读取数据时， 缓冲区必须为`signalfd_siginfo`结构。
+
+
 
 
 
