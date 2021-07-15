@@ -180,8 +180,8 @@ int poll(struct pollfd fds[], nfds_t nfds, int timeout);
 2. 设定文件描述符的属主，属主就是用来告知内核， 那个进程或进程组来接收这个信号通知。一般设置为调用进程为属主。可调用`fcntl`的`F_SETOWN`来指定。
    
    ```fcntl(fd, F_SETOWN, pid)```
-3. 设置文件描述符为O_NONBLOCK标志， 保证其非阻塞
-4. 设置文件描述符O_ASYNC标志使能信号驱动I/O。可以与上一步一起设置:
+3. 设置文件描述符为`O_NONBLOCK`标志， 保证其非阻塞
+4. 设置文件描述符`O_ASYNC`标志使能信号驱动I/O。可以与上一步一起设置:
    
    ```fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_ASYNC| O_NONBLOCK)```
 5. 此时进程可做其他任务了。 当存在I/O事件时会得到通知
@@ -195,9 +195,33 @@ int poll(struct pollfd fds[], nfds_t nfds, int timeout);
 
 需要执行如下两个步骤来完善这些缺陷:
 1. 通过`fcntl()`的`F_SETSIG`来为文件描述符指定一个实时信号, 当文件描述符上的I/O就绪时， 这个实时信号应该取代SIGIO被发送。
-2. 使用`sigaction()`安装信号处理时，需指定SA_SIGINFO标记。 以接收`siginfo_t`信息。
+2. 使用`sigaction()`安装信号处理时，需指定`SA_SIGINFO`标记。 以接收`siginfo_t`信息。
+
+```c
+if (fcntl(fd, F_SETSIG, sig) == -1){
+  exit(1);
+}
+```
+
+当收到I/O信号后， 其中`siginfo_t`结构如下:
+- si_signo: 触发信号处理的信号值
+- si_fd: 发生I/O事件的文件描述符
+- si_code: 表示发生事件类型的代码。如POLL_IN、POLL_OUT等，更多详见[sigaction manpage](https://man7.org/linux/man-pages/man2/sigaction.2.html)
+- si_band: 一个位掩码。与系统调用poll()中返回的revents相同。
+
+通常si_code与si_band对应值如下:
+|si_code|si_band掩码|描述|
+|----------|----------|----------|
+|POLL_IN|POLLIN &#124; POLLRDNORM|存在输入；文件结尾情况|
+|POLL_OUT|POLLOUT &#124; POLLWRNORM &#124; POLLWRBAND|可输出|
+|POLL_MSG|POLLIN &#124; POLLRDNORM &#124; POLLMSG|存在输出消息(不使用)|
+|POLL_ERR|POLLERR|I/O错误|
+|POLL_PRI|POLLPRI &#124; POLLRDNORM|存在高优先级输入|
+|POLL_HUP|POLLHUP &#124; POLLERR|出现宕机|
 
 
 ### 信号队列溢出的问题
+学习实时信号时提到过， 实时信号的可排队数量是有限的。 如果达到上限，内核对于“I/O就绪”的通知将恢复为默认的SIGIO信号。出现这种现象表示信号队列溢出了。当出现这种情况时， 我么将失去有关文件描述符上发生I/O事件的信息， 因为SIGIO信号不会排队。
+
 
 ## epoll
