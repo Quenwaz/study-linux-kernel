@@ -15,15 +15,22 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <termio.h>
+#include <string.h>
 
 #define SIG_DRIVE_IO (SIGRTMIN+2)
 
+
+
 static void sigHandler(int sig, siginfo_t * siginfo, void * data)
 {
-    char msg[1024]={0};
-    ssize_t numread = read(siginfo->si_fd, msg, sizeof msg);
-    if (numread > 0)
-        write(STDERR_FILENO, msg,numread);
+    if (siginfo->si_fd == STDIN_FILENO && siginfo->si_code == POLL_IN)
+    {
+        char msg[1024]={0};
+        ssize_t numread = read(siginfo->si_fd, msg, sizeof msg);
+        if (numread > 0)
+            write(STDERR_FILENO, msg,numread);
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -50,6 +57,7 @@ int main(int argc, char const *argv[])
         return 1;
     }
 
+
     // step 4：循环阻塞非SIG_DRIVE_IO信号， 以等待SIG_DRIVE_IO信号
     sigset_t set_block, setold;
     sigemptyset(&set_block);
@@ -58,8 +66,6 @@ int main(int argc, char const *argv[])
     for(;;)
     {
         sigsuspend(&setold);
-        // sigwaitinfo();
-        // pause();
     }
     sigprocmask(SIG_UNBLOCK, &set_block, NULL);
     return 0;
