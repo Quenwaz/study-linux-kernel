@@ -17,7 +17,12 @@
   - [信号驱动I/O](#信号驱动io)
     - [优化信号驱动的使用](#优化信号驱动的使用)
     - [信号队列溢出的问题](#信号队列溢出的问题)
+    - [多线程中使用信号驱动I/O](#多线程中使用信号驱动io)
   - [epoll](#epoll)
+    - [创建epoll实例](#创建epoll实例)
+    - [修改epoll兴趣列表](#修改epoll兴趣列表)
+      - [感兴趣文件描述符上限](#感兴趣文件描述符上限)
+    - [事件等待](#事件等待)
 
 
 ## 概述
@@ -221,7 +226,97 @@ if (fcntl(fd, F_SETSIG, sig) == -1){
 
 
 ### 信号队列溢出的问题
-学习实时信号时提到过， 实时信号的可排队数量是有限的。 如果达到上限，内核对于“I/O就绪”的通知将恢复为默认的SIGIO信号。出现这种现象表示信号队列溢出了。当出现这种情况时， 我么将失去有关文件描述符上发生I/O事件的信息， 因为SIGIO信号不会排队。
+学习实时信号时提到过， 实时信号的可排队数量是有限的。 如果达到上限，内核对于“I/O就绪”的通知将恢复为默认的SIGIO信号。出现这种现象表示信号队列溢出了。当出现这种情况时， 将失去有关文件描述符上发生I/O事件的信息， 因为SIGIO信号不会排队。
 
+> 一个设计良好的采用`F_SETSIG`来建立实时信号作为“I/O就绪”通知的程序必须也要为信号SIGIO安装处理程序。 如果发送了`SIGIO`信号， 应用程序可先通过`sigwaitinfo()`将队列中的实时信号全部获取，然后临时切换到`select()`或`poll()`， 通过它们获取剩余的发生I/O事件的文件描述符列表。
+
+
+### 多线程中使用信号驱动I/O
+
+从内核2.6.32开始， Linux 提供了两个新的非标准`fcntl()`操作， 可用于设定接收I/O就绪信号的目标。 它们是`F_SETOWN_EX`和`F_GETOWN_EX`
+
+`fcntl()`的第三个参数指向如下结构体指针:
+```c
+struct f_owner_ex{
+  int type;
+  pid_t pid;
+};
+```
+
+当type设置为`F_OWNER_TID`时， 字段pid指定了作为接收I/O就绪信号的线程ID。
 
 ## epoll
+
+epoll为Linux专用接口， 主要有如下优点:
+- 当检查大量文件描述符时， epoll的性能延展性比select()和poll()高
+- epoll既支持水平触发也支持边缘触发。
+- 避免信号驱动的复杂处理流程（避免信号驱动的队列溢出问题）
+- 灵活性高，可指定我们希望检查的事件类型
+
+epoll API核心数据结构称为epoll实例， 它与一个打开的文件描述符相关联。而这个文件描述符不是用来做I/O操作的， 它时内核数据结构句柄，内核数据结构实现了两个目的
+1. 记录在进程中声明过感兴趣文件描述符列表----interest list(兴趣列表)
+2. 维护处于I/O就绪态的文件描述符列表----ready list(就绪列表)
+
+> ready list中的成员是interest list的子集。
+
+epoll API由以下三个系统调用组成:
+1. epoll_create()： 创建一个epoll实例， 返回代表该实例的文件描述符。
+2. epoll_ctl()：操作同epoll实例相关联的兴趣列表。 可新增删除文件描述符， 或修改文件描述符上的事件类型掩码。
+3. epoll_wait(): 返回与epoll实例相关联的就绪列表的成员。
+
+### 创建epoll实例
+
+```c
+#include <sys/epoll.h>
+
+/**
+ * @brief 创建epoll实例
+ * 
+ * @param size 指定检查文件描述符个数。此值不是一个上限。而是告诉内核的一个初始值 
+ * @return int 成功返回文件描述符， 失败返回-1 
+ * @note size在 Linux 2.6.8之后被忽略不用。
+ * 对于返回值的文件描述符， 不用时应调用close()进行关闭。
+ */
+int epoll_create(int size);
+```
+
+### 修改epoll兴趣列表
+
+```c
+#include <sys/epoll.h>
+
+struct epoll_event
+{
+    uint32_t events;    /*epoll events(bit mask)*/
+    epoll_data_t data;  /*User data*/
+};
+
+/**
+ * @brief 修改用文件描述符epfd所代表的兴趣列表
+ * 
+ * @param epfd 由epoll_create创建的文件描述符
+ * @param op 操作选项
+ * @param fd 感兴趣的文件描述符， 
+ *           可以是管道、FIFO、套接字、POSIX消息队列、inotify实例、终端、设备，
+ *           甚至可以是另一个epoll文件描述符。不能是普通文件或目录的文件描述符
+ * @param ev 位掩码，指定待检测描述符所感兴趣事件集合
+ * @return int 返回0表示成功， -1 表示出错
+ */
+int epoll_ctl(int epfd, int op, int fd, struct epoll_event *ev);
+```
+
+其中`op`可选值如下:
+- EPOLL_CTL_ADD: 添加文件描述符到感兴趣列表。 添加一个已存在的将出现EEXIST错误
+- EPOLL_CTL_MOD：修改描述符上设定的事件， 修改不在感兴趣列表中的文件描述符， 将出现ENOENT错误
+- EPOLL_CTL_DEL: 将文件描述符从感兴趣列表删除， 将忽略ev参数。 试图移除一个不存在的文件描述符，将出现错误ENOENT。**关闭文件描述符会自动将其从epoll感兴趣列表移除**。
+
+#### 感兴趣文件描述符上限
+epoll实例上的文件描述符需占用一段不能被交换的内核内存空间。因此内核提供了接口用来定义每个用户可注册到epoll实例上的文件描述符总数。 这个上限可通过`max_user_watches`查看和修改。文件位于`/proc/sys/fs/epoll`目录下。**默认上限值可根据系统内存来计算得出**
+
+### 事件等待
+
+```c
+#include <sys/epoll.h>
+
+int epoll_wait(int epfd, struct epoll_event *evlist, int maxevents, int timeout);
+```
