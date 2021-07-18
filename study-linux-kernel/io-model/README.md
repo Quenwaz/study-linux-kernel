@@ -23,6 +23,9 @@
     - [修改epoll兴趣列表](#修改epoll兴趣列表)
       - [感兴趣文件描述符上限](#感兴趣文件描述符上限)
     - [事件等待](#事件等待)
+    - [epoll事件](#epoll事件)
+      - [EPOLLNESHOT标志](#epollneshot标志)
+    - [深入epoll语义](#深入epoll语义)
 
 
 ## 概述
@@ -318,5 +321,45 @@ epoll实例上的文件描述符需占用一段不能被交换的内核内存空
 ```c
 #include <sys/epoll.h>
 
+/**
+ * @brief 等待文件描述符就绪
+ * 
+ * @param epfd epoll文件描述符实例
+ * @param evlist [in/out] 返回就绪态的文件描述符信息, 用户需先分配内存。
+ * @param maxevents  evlist列表长度， 每次将从就绪列表中取出指定大小的就绪信息
+ * @param timeout -1 表示阻塞等待; 0表示非阻塞检查; >0 表示阻塞毫秒数或就绪或信号发生
+ * @return int >0 返回就绪的文件描述符数量; =0 超时; -1 表示错误发生
+ */
 int epoll_wait(int epfd, struct epoll_event *evlist, int maxevents, int timeout);
 ```
+
+### epoll事件
+
+|位掩码|作为epoll_ctl()的输入|由epoll_wait()返回|描述|
+|--------|---|---|--------|
+|EPOLLIN|Y|Y|可读取非高优先级的数据|
+|EPOLLPRI|Y|Y|可读取高优先级数据|
+|EPOLLRDHUP|Y|Y|套接字对端关闭|
+|EPOLLOUT|Y|Y|普通数据可写|
+|EPOLLET|Y|N|采用边缘触发事件通知|
+|EPOLLNESHOT|Y|N|在完成事件通知之后禁用检查|
+|EPOLLERR|N|Y|有错误发生|
+|EPOLLHUP|N|Y|出现挂断|
+
+#### EPOLLNESHOT标志
+此标志将会在`epoll_wait()`获取到其就绪通知后处于非激活状态， 下次将不会得到通知。直到利用`epoll_ctl()`使用`EPOLL_CTL_MOD`标志重新激活对这个文件描述符的检查。**不能用EPOLL_CTL_ADD标志， 因为文件描述符仍然在兴趣列表中处于非激活状态**
+
+
+### 深入epoll语义
+
+由于epoll_create()创建一个epoll实例时， 内核在内存中创建一个新的i-node及打开的文件句柄。随后在调用进程中为打开的文件句柄分配一个新的文件描述符。 同epoll兴趣列表关联的是打开的文件句柄， 而非epoll文件描述符。
+
+> 注意`[文件描述符]`、`[打开的文件句柄]`及`[i-node]`之间的关系
+
+由于以上关系， 就会出现如下情况:
+- 当利用`dup()`或类似函数复制了epoll文件描述符。 将共用epoll兴趣列表和就绪列表。 两个文件描述符指向相同的兴趣列表和就绪列表。 利用epoll_ctl修改任意一个文件描述符，将导致另一个关联的兴趣列表和就绪列表更改。
+- 同时对于fork()也会出现以上情况
+
+当利用epoll_ctl()的EPOLL_CTL_ADD在epoll兴趣列表中添加一个元素， 这个元素同时记录了需要检查的文件描述符数量**以及对应文件描述符的引用**。所以上文[修改epoll兴趣列表](#修改epoll兴趣列表)提到的关闭兴趣列表中某个文件描述符，将会自动从兴趣列表移除。更严谨地是：**当所有打开的文件句柄的文件描述符都关闭后， 这个打开的文件句柄才会从epoll兴趣列表中移除**。
+
+

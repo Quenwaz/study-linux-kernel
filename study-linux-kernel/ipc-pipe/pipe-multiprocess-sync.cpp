@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	setbuf(stdout, nullptr); // Do not buffer stdout, output immediately
+	setbuf(stdout, nullptr); // Do not buffera stdout, output immediately
 
 	int pfd[2] = {-1, -1};
 	if (pipe(pfd) == -1)
