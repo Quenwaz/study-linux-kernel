@@ -26,6 +26,9 @@
     - [epoll事件](#epoll事件)
       - [EPOLLNESHOT标志](#epollneshot标志)
     - [深入epoll语义](#深入epoll语义)
+    - [epoll与I/O多路复用的性能对比](#epoll与io多路复用的性能对比)
+    - [边缘触发通知](#边缘触发通知)
+      - [边缘触发时避免出现文件描述符饥饿现象](#边缘触发时避免出现文件描述符饥饿现象)
 
 
 ## 概述
@@ -218,14 +221,14 @@ if (fcntl(fd, F_SETSIG, sig) == -1){
 - si_band: 一个位掩码。与系统调用poll()中返回的revents相同。
 
 通常si_code与si_band对应值如下:
-|si_code|si_band掩码|描述|
-|----------|----------|----------|
-|POLL_IN|POLLIN &#124; POLLRDNORM|存在输入；文件结尾情况|
-|POLL_OUT|POLLOUT &#124; POLLWRNORM &#124; POLLWRBAND|可输出|
-|POLL_MSG|POLLIN &#124; POLLRDNORM &#124; POLLMSG|存在输出消息(不使用)|
-|POLL_ERR|POLLERR|I/O错误|
-|POLL_PRI|POLLPRI &#124; POLLRDNORM|存在高优先级输入|
-|POLL_HUP|POLLHUP &#124; POLLERR|出现宕机|
+| si_code  | si_band掩码                                 | 描述                   |
+| -------- | ------------------------------------------- | ---------------------- |
+| POLL_IN  | POLLIN &#124; POLLRDNORM                    | 存在输入；文件结尾情况 |
+| POLL_OUT | POLLOUT &#124; POLLWRNORM &#124; POLLWRBAND | 可输出                 |
+| POLL_MSG | POLLIN &#124; POLLRDNORM &#124; POLLMSG     | 存在输出消息(不使用)   |
+| POLL_ERR | POLLERR                                     | I/O错误                |
+| POLL_PRI | POLLPRI &#124; POLLRDNORM                   | 存在高优先级输入       |
+| POLL_HUP | POLLHUP &#124; POLLERR                      | 出现宕机               |
 
 
 ### 信号队列溢出的问题
@@ -335,16 +338,16 @@ int epoll_wait(int epfd, struct epoll_event *evlist, int maxevents, int timeout)
 
 ### epoll事件
 
-|位掩码|作为epoll_ctl()的输入|由epoll_wait()返回|描述|
-|--------|---|---|--------|
-|EPOLLIN|Y|Y|可读取非高优先级的数据|
-|EPOLLPRI|Y|Y|可读取高优先级数据|
-|EPOLLRDHUP|Y|Y|套接字对端关闭|
-|EPOLLOUT|Y|Y|普通数据可写|
-|EPOLLET|Y|N|采用边缘触发事件通知|
-|EPOLLNESHOT|Y|N|在完成事件通知之后禁用检查|
-|EPOLLERR|N|Y|有错误发生|
-|EPOLLHUP|N|Y|出现挂断|
+| 位掩码      | 作为epoll_ctl()的输入 | 由epoll_wait()返回 | 描述                       |
+| ----------- | --------------------- | ------------------ | -------------------------- |
+| EPOLLIN     | Y                     | Y                  | 可读取非高优先级的数据     |
+| EPOLLPRI    | Y                     | Y                  | 可读取高优先级数据         |
+| EPOLLRDHUP  | Y                     | Y                  | 套接字对端关闭             |
+| EPOLLOUT    | Y                     | Y                  | 普通数据可写               |
+| EPOLLET     | Y                     | N                  | 采用边缘触发事件通知       |
+| EPOLLNESHOT | Y                     | N                  | 在完成事件通知之后禁用检查 |
+| EPOLLERR    | N                     | Y                  | 有错误发生                 |
+| EPOLLHUP    | N                     | Y                  | 出现挂断                   |
 
 #### EPOLLNESHOT标志
 此标志将会在`epoll_wait()`获取到其就绪通知后处于非激活状态， 下次将不会得到通知。直到利用`epoll_ctl()`使用`EPOLL_CTL_MOD`标志重新激活对这个文件描述符的检查。**不能用EPOLL_CTL_ADD标志， 因为文件描述符仍然在兴趣列表中处于非激活状态**
@@ -352,14 +355,45 @@ int epoll_wait(int epfd, struct epoll_event *evlist, int maxevents, int timeout)
 
 ### 深入epoll语义
 
-由于epoll_create()创建一个epoll实例时， 内核在内存中创建一个新的i-node及打开的文件句柄。随后在调用进程中为打开的文件句柄分配一个新的文件描述符。 同epoll兴趣列表关联的是打开的文件句柄， 而非epoll文件描述符。
+由于`epoll_create()`创建一个epoll实例时， 内核在内存中创建一个新的`i-node`及打开的文件句柄。随后在调用进程中为打开的文件句柄分配一个新的文件描述符。 同epoll兴趣列表关联的是打开的文件句柄， 而非epoll文件描述符。
 
 > 注意`[文件描述符]`、`[打开的文件句柄]`及`[i-node]`之间的关系
 
 由于以上关系， 就会出现如下情况:
-- 当利用`dup()`或类似函数复制了epoll文件描述符。 将共用epoll兴趣列表和就绪列表。 两个文件描述符指向相同的兴趣列表和就绪列表。 利用epoll_ctl修改任意一个文件描述符，将导致另一个关联的兴趣列表和就绪列表更改。
-- 同时对于fork()也会出现以上情况
+- 当利用`dup()`或类似函数复制了epoll文件描述符。 将共用epoll兴趣列表和就绪列表。 两个文件描述符指向相同的兴趣列表和就绪列表。 利用`epoll_ctl`修改任意一个文件描述符，将导致另一个关联的兴趣列表和就绪列表更改。
+- 同时对于`fork()`也会出现以上情况
 
-当利用epoll_ctl()的EPOLL_CTL_ADD在epoll兴趣列表中添加一个元素， 这个元素同时记录了需要检查的文件描述符数量**以及对应文件描述符的引用**。所以上文[修改epoll兴趣列表](#修改epoll兴趣列表)提到的关闭兴趣列表中某个文件描述符，将会自动从兴趣列表移除。更严谨地是：**当所有打开的文件句柄的文件描述符都关闭后， 这个打开的文件句柄才会从epoll兴趣列表中移除**。
+当利用`epoll_ctl()`的`EPOLL_CTL_ADD`在`epoll`兴趣列表中添加一个元素， 这个元素同时记录了需要检查的文件描述符数量**以及对应文件描述符的引用**。所以上文[修改epoll兴趣列表](#修改epoll兴趣列表)提到的关闭兴趣列表中某个文件描述符，将会自动从兴趣列表移除。更严谨地是：**当所有打开的文件句柄的文件描述符都关闭后， 这个打开的文件句柄才会从epoll兴趣列表中移除**。
 
+
+### epoll与I/O多路复用的性能对比
+实验证明， 随着文件描述符数量的上升， `poll()`和`select()`的性能表现越来越差。 而对于`epoll()`， 当文件描述符数量增长很大的值时， 性能几乎不受影响。之所以`epll()`能保持性能稳定， 主要因为有如下几点:
+- 对于`select()`和`poll()`， 内核必须检查所有在调用中指定的文件描述符。而epoll()只要指定了文件描述符， 内核会在打开的文件句柄相关的兴趣列表中与之关联。 之后每执行I/O操作使得文件描述符成为就绪态时， 内核就在epoll描述符的就绪列表中添加一个元素。(单个打开的文件句柄I/O就绪会导致与之关联的文件描述符就绪)
+- 对于`select()`和`poll()`，标记待监视的文件描述符及事件的数据结构， 需要在内核态与进程态之间至少传递两次。而`epoll()`在内核空间中建立数据结构， 该结构将待监视的文件描述符记录在兴趣列表。之后只需获取就绪的文件描述符。
+
+### 边缘触发通知
+默认情况下`epoll()`提供的时水平触发通知。 要使用边缘触发通知， 需调用`epoll_ctl()`时在`ev.events`字段中指定`EPOLLET`标志。
+
+```c
+struct epoll_event ev;
+ev.data.fd = fd;
+ev.events = EPOLLIN|EPOLLET;
+if (epoll_ctl(epfd, EPOLL_CTL_ADD, fd, ev) == -1){
+  exit(1);
+}
+```
+
+采用epoll的边缘通知机制的程序基本框架为:
+1. 将待监视的文件描述符设为非阻塞的
+2. 通过`epoll_ctl()`构建epoll兴趣列表
+3. 通过如下循环处理I/O事件
+   1. 通过`epoll_wait()`取得处于就绪态的描述符列表
+   2. 针对每个就绪态文件描述符， 不断进行I/O直到相关系统调用返回`EAGAIN`或`EWOULDBLOCK`错误
+
+
+#### 边缘触发时避免出现文件描述符饥饿现象
+
+所谓饥饿现象的一般场景是： 当监控了多个文件描述符， 此时其中一个文件描述符上有大量的输入存在(持续的流数据)。 如果检测到此文件描述符处于就绪态后， 通过非阻塞读取直到出现错误`EAGAIN`或`EWOULDBLOCK`。 将会导致其他文件描述符处于无法读取的状态。
+
+面临此场景， 一贯的处理办法是:
 
