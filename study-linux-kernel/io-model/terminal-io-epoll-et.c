@@ -51,8 +51,11 @@ int add_fd_to_list(ready_io_fds* ready_fds, struct epoll_event * fd)
         return 0;
     }
 
+    if (ready_fds->capacity <= ready_fds->size){
+        if(ready_fds->capacity == 0 && ready_fds->size == 0){
+            ready_fds->capacity = 1;
+        }
 
-    if (ready_fds->capacity>= ready_fds->size){
         ready_fds->capacity *=2;
         struct epoll_event* temp_fds = malloc(ready_fds->capacity * sizeof(struct epoll_event));
         if (temp_fds == NULL){
@@ -111,7 +114,6 @@ int remove_file_descriptor(ready_io_fds* ready_fds, struct epoll_event * fd)
     return 0;
 }
 
-#include <limits.h>
 
 int main(int argc, char const *argv[])
 {
@@ -148,7 +150,7 @@ int main(int argc, char const *argv[])
             if( FD_ISSET(STDIN_FILENO, &set_read) && 
                 (numread=read(STDIN_FILENO, msg, sizeof msg)) > 0)
             {
-                fprintf(stderr, "pid[%d] read number of byte: %ld, error:%s\n", getpid(), numread, strerror(errno));
+                fprintf(stderr, "pid[%d] read number of byte: %d, error:%s\n", getpid(), numread, strerror(errno));
                 if (-1 == write(fd_pipe[1], msg, numread)){
                     
                     break;
