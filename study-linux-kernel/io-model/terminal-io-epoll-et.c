@@ -217,7 +217,5 @@ int main(int argc, char const *argv[])
         else timeout = 0;
     }
     
-
-
     return 0;
 }
