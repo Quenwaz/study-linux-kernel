@@ -6,6 +6,7 @@
   - [虚拟内存管理](#虚拟内存管理)
   - [栈与栈帧](#栈与栈帧)
   - [非局部跳转: setjmp() 和 longjmp()](#非局部跳转-setjmp-和-longjmp)
+    - [不正确地使用非局部跳转](#不正确地使用非局部跳转)
   - [进程的创建、退出、等待](#进程的创建退出等待)
     - [fork的内存语义](#fork的内存语义)
     - [fork之后的竞争条件](#fork之后的竞争条件)
@@ -129,6 +130,32 @@ int main(int argc, char* argv[])
 ## 非局部跳转: setjmp() 和 longjmp()
 非局部调整可使当前执行的函数跳转到另一个函数中执行， 有异于`goto` 仅能在当前函数中跳转。
 
+### 不正确地使用非局部跳转
+以下为不正确使用非局部跳转得示例:
+```c
+static jmp_buf env;
+
+static void f2()
+{
+    longjmp(env, 1);
+}
+
+static int f1()
+{
+    return setjmp(env);
+}
+
+int main(int argc, char const *argv[])
+{
+    f1();
+    f2();
+    return 0;
+}
+
+```
+
+
+> 尽量避免使用非局部跳转, 将造成代码难以阅读。
 
 ## 进程的创建、退出、等待
 

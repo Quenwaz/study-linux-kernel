@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <setjmp.h>
 
-
+#define V2
+#ifdef V1
 static jmp_buf env;
 
 static void f2(void)
@@ -38,3 +39,26 @@ int main(int argc, char const *argv[])
     }
     return 0;
 }
+
+#elif defined(V2)
+
+static jmp_buf env;
+
+static void f2()
+{
+    longjmp(env, 1);
+}
+
+static int f1()
+{
+    return setjmp(env);
+}
+
+int main(int argc, char const *argv[])
+{
+    f1();
+    f2();
+    return 0;
+}
+
+#endif
