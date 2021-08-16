@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 	for (;;)
 	{
 		struct sockaddr_in addr_client;
-		socklen_t _n_addr_client = 0;
+		socklen_t _n_addr_client = sizeof(struct sockaddr_in);
 		int sock_client = accept(sock, (struct sockaddr*)&addr_client, &_n_addr_client);
 		if (-1 == sock_client)
 		{
@@ -117,7 +117,6 @@ int main(int argc, char* argv[])
 		pthread_t thread;
 		if( 0 > pthread_create(&thread, NULL, _thread_func, &sock_client))
 		{
-			
 			continue;
 		}
 
