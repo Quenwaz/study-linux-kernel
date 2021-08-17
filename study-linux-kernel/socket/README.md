@@ -15,6 +15,7 @@
   - [连接到socket: connect()](#连接到socket-connect)
   - [终止连接: close()](#终止连接-close)
 - [流socket](#流socket)
+  - [流socket I/O](#流socket-io)
 - [数据报socket](#数据报socket)
 
 # Socket概述
@@ -163,5 +164,9 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen);
    3. 调用listen()的程序使用accept()接受连接。 类似电话响起时拿起雕花。 
 3. 一旦建立连接后， 可在程序之间双向传递数据。 直到其中一个使用close()关闭连接为止。
 
+![stream socket](img/stream_socket_api_call.jpg)
 
+## 流socket I/O
+
+![stream socket communicate](img/stream_socket_communicate.jpg)
 # 数据报socket
