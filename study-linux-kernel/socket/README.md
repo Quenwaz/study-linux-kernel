@@ -11,7 +11,11 @@
   - [创建socket](#创建socket)
   - [socket绑定到地址](#socket绑定到地址)
   - [监听接入连接：listen()](#监听接入连接listen)
+  - [接受连接：accept()](#接受连接accept)
+  - [连接到socket: connect()](#连接到socket-connect)
+  - [终止连接: close()](#终止连接-close)
 - [流socket](#流socket)
+- [数据报socket](#数据报socket)
 
 # Socket概述
 socket是一个各应用间允许通信的“设备”
@@ -107,6 +111,57 @@ int listen(int sockfd, int backlog);
 
 ![backlog](img/backlog.jpg)
 
+## 接受连接：accept()
+
+`accept()`系统调用接受一个接入连接，如果存在`未决的连接`, 那么调用立即返回, 否则等待。
+
+```c
+#include <sys/socket.h>
+
+/**
+ * @brief 在listen流socket上接受一个接入连接
+ * 
+ * @param sockfd listen流socket
+ * @param addr 用以返回对端地址的结构
+ * @param addrlen addr的长度， 返回实际sa_data大小
+ * @return int 返回socket文件描述符， -1 则表示出错
+ */
+int accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen);
+```
+
+`accept()`会创建一个新已连接的socket， 这个新的socket用以与执行connect()的对等socket进行连接。
+accept() 还会返回对端的socket地址， 如果不需要可将addr和addrlen设置为NULL和0。可在稍后调用`getpeername()`来获取对端地址。
+
+## 连接到socket: connect()
+
+```c
+#include <sys/socket.h>
+
+/**
+ * @brief 将文件描述符sockfd对应的socket连接到在地址addr监听的socket上
+ * 
+ * @param sockfd socket
+ * @param addr 服务端的地址
+ * @param addrlen addr 长度
+ * @return int 成功则返回0， 否则返回-1
+ */
+int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen);
+```
+
+## 终止连接: close()
+终止一个流socket连接的常见方式是调用close()。如果**多个文件描述符引用了同一个socket, 那么当所有文件描述符被关闭后连接才会终止**。
+
+
+
 # 流socket
 
-#
+流socket与电话系统类似
+1. socket()系统调用创建一个socket， 等价于安装一个电话。 为使两个应用程序能够通信， 每个应用程序必须要创建一个socket。
+2. 通过一个流socket通信类似于一个电话呼叫。 一个应用程序通信前必须将其socket连接到另一个应用程序的socket上。 基本过程如下：
+   1. 一个应用调用bind()将socket绑定到一个总所周知的地址上， 然后调用listen() 通知内核它接受接入连接的意愿。 类似有个总所周知的电话， 确保打开了。
+   2. 其他应用通过connect()建立连接， 同时需指定连接的socket地址。 类似拨某人电话号码
+   3. 调用listen()的程序使用accept()接受连接。 类似电话响起时拿起雕花。 
+3. 一旦建立连接后， 可在程序之间双向传递数据。 直到其中一个使用close()关闭连接为止。
+
+
+# 数据报socket
