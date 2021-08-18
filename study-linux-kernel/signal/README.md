@@ -632,12 +632,12 @@ int siginterrupt(int sig, int flag);
 
 为了避免不生成核心转储文件， 通常执行如下命令取消限制核心转储文件的大小:
 ```shell
-unlimit -c unlimited
+ulimit -c unlimited
 ```
 
 生成核心转储文件示例:
 ```shell
-unlimit -c unlimited
+ulimit -c unlimited
 sleep 30
 # 输入Control + \触发 SIG_QUIT
 ls -l core  //  查看文件

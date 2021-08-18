@@ -13,10 +13,12 @@
   - [监听接入连接：listen()](#监听接入连接listen)
   - [接受连接：accept()](#接受连接accept)
   - [连接到socket: connect()](#连接到socket-connect)
+  - [发送与接收数据报: recvfrom()与sendto()](#发送与接收数据报-recvfrom与sendto)
   - [终止连接: close()](#终止连接-close)
 - [流socket](#流socket)
   - [流socket I/O](#流socket-io)
 - [数据报socket](#数据报socket)
+  - [在数据报socket上使用connect()](#在数据报socket上使用connect)
 
 # Socket概述
 socket是一个各应用间允许通信的“设备”
@@ -149,6 +151,44 @@ accept() 还会返回对端的socket地址， 如果不需要可将addr和addrle
 int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen);
 ```
 
+## 发送与接收数据报: recvfrom()与sendto()
+
+```c
+#include <sys/socket.h>
+
+/**
+ * @brief 从对端socket中接收数据
+ * 
+ * @param sockfd 本端socket
+ * @param buffer 接收数据的buffer
+ * @param length 数据长度(字节数)
+ * @param flags 位掩码
+ * @param src_addr 对端socket地址
+ * @param addrlen src_addr 长度, 返回实际写入结构的字节数
+ * @return ssize_t 返回实际收到的字节数， 0表示EOF， -1 表示错误
+ * @note 可用read()替代， 相当于不关心数据来源。
+ *  
+ */
+ssize_t recvfrom(int sockfd, void* buffer, size_t length, int flags, struct sockaddr* src_addr, socklen_t* addrlen);
+
+
+/**
+ * @brief 发送数据到指定socket地址
+ * 
+ * @param sockfd 本端socket
+ * @param buffer 发送数据buffer
+ * @param length 发送数据长度
+ * @param flags 位掩码
+ * @param dest_addr 对端socket地址
+ * @param addrlen dest_addr长度
+ * @return ssize_t 返回实际发送的字节数， -1则表示出错
+ */
+ssize_t sendto(int sockfd, const void* buffer, size_t length, int flags, const struct sockaddr* dest_addr, socklen_t addrlen);
+```
+
+`recvfrom()`只会从数据报中读取一条消息， 如果消息大小超过了length字节， 那么消息将会被截断为length字节。
+
+
 ## 终止连接: close()
 终止一个流socket连接的常见方式是调用close()。如果**多个文件描述符引用了同一个socket, 那么当所有文件描述符被关闭后连接才会终止**。
 
@@ -166,7 +206,27 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen);
 
 ![stream socket](img/stream_socket_api_call.jpg)
 
+
 ## 流socket I/O
 
+流I/O与管道I/O类似，** 试图向一个关闭的socket写入数据， 会收到`SIGPIPE`信号， 系统调用返回错误EPIPE**。试图向一个关闭的socket读取数据会收到文件结束(当所有缓冲数据都被读取之后)
 ![stream socket communicate](img/stream_socket_communicate.jpg)
+
+
 # 数据报socket
+数据包socket 的运作类似于邮政系统。
+1. `socket()`等价于创建一个邮箱。 需要发送和接收数据报的应用都需使用socket()创建一个数据包socket;
+2. 为允许socket能接收数据报， 需要将其`bind()`到一个众所周知的地址上。通常服务端程序会将socket绑定到一个总所周知的地址上。在某些domain(UNIX domain)中， 客户端若想收到来自服务器的数据报，也需要将socket利用`bind()`与地址绑定。
+3. 利用 [sendto()](#发送与接收数据报-recvfrom与sendto) 发送数据报 。
+4. 利用 [recvfrom()](#发送与接收数据报-recvfrom与sendto) 接收数据报。在没有数据报到达时会阻塞。
+5. `close()` 关闭socket
+
+![数据报系统调用过程](img/sock_dgram_api_call.jpg)
+
+## 在数据报socket上使用connect()
+如果对一个数据报socket调用`connect()`, 相当于将本端socket与对端socket建立“对”, 往后的发送与接收数据将默认为与对端socket进行通信。 而无需再指定socket地址。
+
+> 利用`connect`建立起来的数据报socket对， 并非对称的。 "对"仅相对于调用`connect`这一端而言。而对端未必与本端唯一绑定。
+
+再次调用`connect()` 可修改已连接的数据报socket"对"。而指定domain为 `AF_UNSPEC`可解除对等关联关系(并没每个UNIX实现都支持)。
+
