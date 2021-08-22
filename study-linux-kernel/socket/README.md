@@ -19,6 +19,8 @@
   - [流socket I/O](#流socket-io)
 - [数据报socket](#数据报socket)
   - [在数据报socket上使用connect()](#在数据报socket上使用connect)
+- [UNIX DOMAIN](#unix-domain)
+  - [UNIX domain socket 地址: struct sockaddr_un](#unix-domain-socket-地址-struct-sockaddr_un)
 
 # Socket概述
 socket是一个各应用间允许通信的“设备”
@@ -229,4 +231,39 @@ ssize_t sendto(int sockfd, const void* buffer, size_t length, int flags, const s
 > 利用`connect`建立起来的数据报socket对， 并非对称的。 "对"仅相对于调用`connect`这一端而言。而对端未必与本端唯一绑定。
 
 再次调用`connect()` 可修改已连接的数据报socket"对"。而指定domain为 `AF_UNSPEC`可解除对等关联关系(并没每个UNIX实现都支持)。
+
+# UNIX DOMAIN
+UNIX domain socket主要用于同一主机系统上进程间的相互通信
+
+## UNIX domain socket 地址: struct sockaddr_un
+为将一个UNIX domain socket 绑定到一个地址上， 需要初始化一个`sockaddr_un`结构。
+```c
+struct sockaddr_un{
+  sa_family_t sun_family; // 总是 AF_UNIX
+  char sun_path[108];
+};
+```
+
+以下为调用示例， 将UNIX domain绑定到一个地址上:
+```c
+const char* const SOCKNAME="/tmp/mysock";
+struct sockaddr_un addr;
+memset(&addr, 0, sizeof(struct sockaddr_un));
+addr.sun_family = AF_UNIX;
+strncpy(addr.sun_path, SOCKNAME, sizeof(addr.sun_path) - 1);
+if (-1 == bind(sockfd, (struct sockaddr*)&addr, sizeof (struct sockaddr_un))){
+    return EXIT_FAILURE;
+}
+```
+
+当用来绑定UNIX domain socket时， bind()会在文件系统中创建一个条目。这个文件被标记为socket。当使用stat()时， stat结构的st_mode字段的文件类型为S_IFSOCK。 当使用 `ls -l`列出时， UNIX domain socket在第一列会显示类型s， 而`ls -F`会在socket路径后面附加一个等号(=)
+
+> 尽管UNIX socket socket 是通过路径名标识， 当这些socket发生的I/O无须对底层设备进行操作。
+
+**注意事项:**
+- 无法将socket绑定到一个既有的路径上， 否则失败返回**EADDRINUSE**
+- 一个socket 只能绑定到一个路径上， 反之亦然
+- 无法使用open()打开一个socket
+- 当不再使用socket时，可使用`unlink()`或`remove()`删除其路径名
+
 
