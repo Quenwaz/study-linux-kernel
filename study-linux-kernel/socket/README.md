@@ -21,6 +21,10 @@
   - [在数据报socket上使用connect()](#在数据报socket上使用connect)
 - [UNIX DOMAIN](#unix-domain)
   - [UNIX domain socket 地址: struct sockaddr_un](#unix-domain-socket-地址-struct-sockaddr_un)
+  - [UNIX domain 中的数据报socket](#unix-domain-中的数据报socket)
+  - [UNIX domain socket 权限](#unix-domain-socket-权限)
+  - [创建互联socket对: socketpair()](#创建互联socket对-socketpair)
+  - [Linux 抽象socket名空间](#linux-抽象socket名空间)
 
 # Socket概述
 socket是一个各应用间允许通信的“设备”
@@ -265,5 +269,54 @@ if (-1 == bind(sockfd, (struct sockaddr*)&addr, sizeof (struct sockaddr_un))){
 - 一个socket 只能绑定到一个路径上， 反之亦然
 - 无法使用open()打开一个socket
 - 当不再使用socket时，可使用`unlink()`或`remove()`删除其路径名
+
+UNIX domain 支持流socket及数据报socket， 下面重点讲解数据报socket的Unix domain， 对于流socket的Unix domain 没有其他特殊之处，除了不经过网络传输(内核中传输)。
+
+## UNIX domain 中的数据报socket
+通过网络传输的数据报的socket通信是不可靠的， 但对于UNIX domain socket来说， 数据报传输在内核中发生， 它是可靠且有序、不会发生重复的。
+
+> UNIX domain 数据报socket 能传输的数据报大小由不同内核决定， 对于Linux来讲， 其限制由SO_SNDBUF socket选项和各个/proc文件来控制。 为了可移植性， 建议将数据报大小上限设定一个较低的值(如2048)
+
+**如果接收端接收数据缓冲小于接收到的数据， 则会发生截断。 造成数据丢失**
+
+## UNIX domain socket 权限
+
+- 对于UNIX domain的socket文件必须拥有写权限
+- 存放socket路径名的所有目录需拥有执行(搜索)权限
+- 默认情况下， 创建socket(通过bind())时会给751权限
+
+## 创建互联socket对: socketpair()
+有时候让单个进程创建一对socket 并将它们连接起来是比较有用的。 可以通过使用两个socket()调用和一个bind()调用以及对listen()、connect()、accept()的调用来完成流socket对的创建， 同时可以利用connect()来创建数据报socket对的创建。 而系统调用`socketpair()`为此提供了快捷方式:
+
+```c
+#include <sys/socket.h>
+
+/**
+ * @brief 用于创建UNIX domain 创建socket对
+ * 
+ * @param domain 域， 必须指定为AF_UNIX
+ * @param type 网络层类型， 可为SOCK_STREAM、SOCK_DGRAM. 
+ * @param protocol 指定为0
+ * @param sockfd 返回两个相互连接的socket文件描述符
+ * @return int 0 则成功， -1 表示发生错误
+ */
+int socketpair(int domain, int type, int protocol, int sockfd[2]);
+```
+
+当type为SOCK_STREAM时，相当于创建了一个双向管道。每个socket都可读写， 且每个方向上数据信道时分开的。
+当调用了socketpair() 的进程fork()创建了子进程， 则子进程继承了文件描述符， 从而实现进程间通信IPC。
+
+> 利用socketpair()创建的socket不会绑定到任意地址上。
+
+## Linux 抽象socket名空间
+
+所谓抽象路径名空间是Linux特有的一项特性， 它允许将一个UNIX domain socket 绑定到一个名字上但不会再文件系统中创建该名字。优势如下:
+- 无需担心与文件系统中的既有名字产生冲突
+- 没有必要再使用完socket之后删除socket路径名。 当socket被关闭后会自动删除这个抽象名
+- 无需为socket创建一个系统路径名
+
+**要创建一个抽象绑定就需要将sun_path自动的第一个字节指定为null字节(\0)**, 区别于传统以null结尾的字符串路径名。`sun_path`字段剩余字节为socket定义了抽象名字。
+
+
 
 

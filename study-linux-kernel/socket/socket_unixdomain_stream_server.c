@@ -14,6 +14,9 @@ int main(int argc, char const *argv[])
         return EXIT_FAILURE;
     }
 
+    // make sure the file does not exist.
+    unlink(argv[1]);
+
     int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sockfd == -1){
         return EXIT_FAILURE;
@@ -31,7 +34,7 @@ int main(int argc, char const *argv[])
         goto exit;
     }
 
-    fprintf(stderr, "listening to %s", argv[1]);
+    fprintf(stderr, "listening to %s\n", argv[1]);
     for (;;)
     {
         int sockfd_client = accept(sockfd, NULL, NULL);

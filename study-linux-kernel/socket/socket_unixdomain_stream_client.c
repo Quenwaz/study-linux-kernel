@@ -1,3 +1,4 @@
+#define _GNU_SOURCE  //for sigaction
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -5,11 +6,35 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
+
+
+
+typedef void(*FnSigHandler)(int);
+void sighandler(int signo)
+{
+    fprintf(stderr, "recv signal SIGPIPE\n");
+    abort();
+}
+
+
+int proces_sigpipe_signal(FnSigHandler handler)
+{
+    struct sigaction sa;
+    sa.sa_flags = SA_RESTART;
+    sa.sa_handler = handler;
+    return sigaction(SIGPIPE, &sa, NULL);
+}
+
 
 int main(int argc, char const *argv[])
 {
     if (argc < 1){
         fprintf(stderr, "Invalid input parameter.\n Usage: %s [Unix domain path]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    if (proces_sigpipe_signal(sighandler) == -1){
         return EXIT_FAILURE;
     }
 
@@ -28,7 +53,7 @@ int main(int argc, char const *argv[])
 
     for(;;)
     {
-        fprintf(stderr, "please input msg: \n");
+        fprintf(stderr, "please input msg: ");
         char msg[1024] ={0};
         int num_read = read(STDIN_FILENO, msg, sizeof(msg));
         if (num_read <= 0){
@@ -50,6 +75,7 @@ int main(int argc, char const *argv[])
     }
 
 exit:
+    fprintf(stderr, "exit: %s\n", strerror(errno));
     close(sockfd);
     return EXIT_SUCCESS;
 }

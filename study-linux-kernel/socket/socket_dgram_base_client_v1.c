@@ -28,7 +28,7 @@
 #define __recv(sockfd, buf, len, flag, addr, addrlen) recv(sockfd, buf, len, flag)
 #else
 #define __send(sockfd, buf, len, flag, addr, addrlen) sendto(sockfd, buf, len, flag, addr, addrlen)
-#define __recv(sockfd, buf, len, flag, addr, addrlen) recvfrom(sockfd, buf, len, flag)
+#define __recv(sockfd, buf, len, flag, addr, addrlen) recvfrom(sockfd, buf, len, flag, addr, addrlen)
 #endif 
 
 int main(int argc, char const *argv[])
