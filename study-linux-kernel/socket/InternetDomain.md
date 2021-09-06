@@ -9,8 +9,8 @@
 - [Internet socket地址](#internet-socket地址)
   - [IPv4 socket 地址： struct sockaddr_in](#ipv4-socket-地址-struct-sockaddr_in)
   - [IPv6 socket 地址：struct sockaddr_in6](#ipv6-socket-地址struct-sockaddr_in6)
+  - [sockaddr_storage](#sockaddr_storage)
 - [主机和服务转换函数概述](#主机和服务转换函数概述)
-- [inet_pton() 和 inet_ntop()函数](#inet_pton-和-inet_ntop函数)
 - [域名系统(DNS)](#域名系统dns)
 - [/etc/services文件](#etcservices文件)
 - [独立于协议的主机和服务转换](#独立于协议的主机和服务转换)
@@ -87,22 +87,54 @@ struct in6_addr{
 }；
 
 struct sockaddr_in6{
-    sa_family_t     sin6_family;
+    sa_family_t     sin6_family;  // AF_INET6
     in_port_t       sin6_port;
     uint32_t        sin6_flowinfo;
     struct in6_addr sin6_addr;
     uint32_t        sin6_scope_id;
 };
 
-
 ```
 
+IPv6 通配地址的C语言常量定义为IN6ADDR_ANY_INIT, 环回地址为 IN6ADDR_LOOPBACK_INIT
+
+## sockaddr_storage
+这个结构是即可存储IPv4亦可存储IPv6， 没有版本区分。
 
 # 主机和服务转换函数概述
 
+- `inet_aton()` 与 `inet_ntoa()`用于将IPv4地址的二进制与点分十进制之间的转换。
+- `inet_pton()` 和 `inet_ntop()` 用于不仅可用于IPv4 的二进制和点分十进制之间的转换， 还可应用与IPv6。
+- 如非必要， 尽量避免将IP地址转换为主机名。 因为转换过程涉及到DNS服务的请求过程。
+- 避免使用 ~~`gethostbyname()`~~ 与  ~~`getservbyname()`~~ 来返回主机名对应的二进制IP地址与端口号， 因为已过时， 替代方案是使用`getaddrinfo()`。 
+- 其他过时接口包括 ~~`gethostbyaddr()`~~ 和 ~~`getservbyport()`~~, 替代现代接口为 `getnameinfo()`
 
-# inet_pton() 和 inet_ntop()函数
 
+
+```c
+#include <arpa/inet.h>
+
+/**
+ * @brief IP地址点分十进制转换为二进制
+ * 
+ * @param domain  通信的“域”， AF_UNIX、AF_INET、AF_INET6、AF_PACKET(链路层通信)
+ * @param src_str 点分十进制IP
+ * @param addrptr 输出IP地址的二进制
+ * @return int 1 表示成功， 0 或 -1 表示错误。 0 表示格式不正确
+ */
+int inet_pton(int domain, const char* src_str, void* addrptr);
+
+/**
+ * @brief IP二进制转换为点分十进制
+ * 
+ * @param domain 通信域
+ * @param addrptr IP二进制值
+ * @param dst_str IP 点分十进制字符串输出
+ * @param len dst_str 缓冲区大小
+ * @return const char* 成功返回dst_str地址， 否则返回NULL表示出错
+ */
+const char* inet_ntop(int domain, const void* addrptr, char* dst_str, size_t len);
+```
 
 # 域名系统(DNS)
 
