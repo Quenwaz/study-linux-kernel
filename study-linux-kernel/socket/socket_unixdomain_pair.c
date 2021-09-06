@@ -42,6 +42,7 @@ int main(int argc, char const *argv[])
         return EXIT_FAILURE;
     }
 
+
     pid_t pid_child = -1;
     switch ((pid_child = fork()))
     {
