@@ -139,7 +139,7 @@ int listen(int sockfd, int backlog);
 int accept(int sockfd, struct sockaddr * addr, socklen_t * addrlen);
 ```
 
-`accept()`会创建一个新已连接的socket， 这个新的socket用以与执行connect()的对等socket进行连接。
+`accept()`会创建一个已连接新的socket， 这个新的socket用以与执行connect()的对等socket进行连接。
 accept() 还会返回对端的socket地址， 如果不需要可将addr和addrlen设置为NULL和0。可在稍后调用`getpeername()`来获取对端地址。
 
 ## 连接到socket: connect()
@@ -206,9 +206,9 @@ ssize_t sendto(int sockfd, const void* buffer, size_t length, int flags, const s
 流socket与电话系统类似
 1. socket()系统调用创建一个socket， 等价于安装一个电话。 为使两个应用程序能够通信， 每个应用程序必须要创建一个socket。
 2. 通过一个流socket通信类似于一个电话呼叫。 一个应用程序通信前必须将其socket连接到另一个应用程序的socket上。 基本过程如下：
-   1. 一个应用调用bind()将socket绑定到一个总所周知的地址上， 然后调用listen() 通知内核它接受接入连接的意愿。 类似有个总所周知的电话， 确保打开了。
+   1. 一个应用调用bind()将socket绑定到一个总所周知的地址上， 然后调用listen() 通知内核它接受接入连接的意愿。 类似有个众所周知的电话， 确保打开了。
    2. 其他应用通过connect()建立连接， 同时需指定连接的socket地址。 类似拨某人电话号码
-   3. 调用listen()的程序使用accept()接受连接。 类似电话响起时拿起雕花。 
+   3. 调用listen()的程序使用accept()接受连接。 类似电话响起时拿起电话。 
 3. 一旦建立连接后， 可在程序之间双向传递数据。 直到其中一个使用close()关闭连接为止。
 
 ![stream socket](img/stream_socket_api_call.jpg)
@@ -216,14 +216,14 @@ ssize_t sendto(int sockfd, const void* buffer, size_t length, int flags, const s
 
 ## 流socket I/O
 
-流I/O与管道I/O类似，** 试图向一个关闭的socket写入数据， 会收到`SIGPIPE`信号， 系统调用返回错误EPIPE**。试图向一个关闭的socket读取数据会收到文件结束(当所有缓冲数据都被读取之后)
+流I/O与管道I/O类似，**试图向一个关闭的socket写入数据， 会收到`SIGPIPE`信号， 系统调用返回错误EPIPE**。试图向一个关闭的socket读取数据会收到文件结束(当所有缓冲数据都被读取之后)
 ![stream socket communicate](img/stream_socket_communicate.jpg)
 
 
 # 数据报socket
 数据包socket 的运作类似于邮政系统。
-1. `socket()`等价于创建一个邮箱。 需要发送和接收数据报的应用都需使用socket()创建一个数据包socket;
-2. 为允许socket能接收数据报， 需要将其`bind()`到一个众所周知的地址上。通常服务端程序会将socket绑定到一个总所周知的地址上。在某些domain(UNIX domain)中， 客户端若想收到来自服务器的数据报，也需要将socket利用`bind()`与地址绑定。
+1. `socket()`等价于创建一个邮箱。 需要发送和接收数据报的应用都需使用socket()创建一个数据报socket;
+2. 为允许socket能接收数据报， 需要将其`bind()`到一个众所周知的地址上。通常服务端程序会将socket绑定到一个众所周知的地址上。在某些domain(UNIX domain)中， 客户端若想收到来自服务器的数据报，也需要将socket利用`bind()`与地址绑定。
 3. 利用 [sendto()](#发送与接收数据报-recvfrom与sendto) 发送数据报 。
 4. 利用 [recvfrom()](#发送与接收数据报-recvfrom与sendto) 接收数据报。在没有数据报到达时会阻塞。
 5. `close()` 关闭socket
@@ -261,7 +261,7 @@ if (-1 == bind(sockfd, (struct sockaddr*)&addr, sizeof (struct sockaddr_un))){
 }
 ```
 
-当用来绑定UNIX domain socket时， bind()会在文件系统中创建一个条目。这个文件被标记为socket。当使用stat()时， stat结构的st_mode字段的文件类型为S_IFSOCK。 当使用 `ls -l`列出时， UNIX domain socket在第一列会显示类型s， 而`ls -F`会在socket路径后面附加一个等号(=)
+当用来绑定UNIX domain socket时， **bind()会在文件系统中创建一个条目**。这个文件被标记为socket。当使用stat()时， stat结构的st_mode字段的文件类型为S_IFSOCK。 当使用 `ls -l`列出时， UNIX domain socket在第一列会显示类型s， 而`ls -F`会在socket路径后面附加一个等号(=)
 
 > 尽管UNIX socket socket 是通过路径名标识， 当这些socket发生的I/O无须对底层设备进行操作。
 
@@ -274,7 +274,7 @@ if (-1 == bind(sockfd, (struct sockaddr*)&addr, sizeof (struct sockaddr_un))){
 UNIX domain 支持流socket及数据报socket， 下面重点讲解数据报socket的Unix domain， 对于流socket的Unix domain 没有其他特殊之处，除了不经过网络传输(内核中传输)。
 
 ## UNIX domain 中的数据报socket
-通过网络传输的数据报的socket通信是不可靠的， 但对于UNIX domain socket来说， 数据报传输在内核中发生， 它是可靠且有序、不会发生重复的。
+通过网络传输的数据报的socket通信是不可靠的， 但对于UNIX domain socket来说， **数据报传输在内核中发生， 它是可靠且有序、不会发生重复的**。
 
 > UNIX domain 数据报socket 能传输的数据报大小由不同内核决定， 对于Linux来讲， 其限制由SO_SNDBUF socket选项和各个/proc文件来控制。 为了可移植性， 建议将数据报大小上限设定一个较低的值(如2048)
 
@@ -311,12 +311,12 @@ int socketpair(int domain, int type, int protocol, int sockfd[2]);
 
 ## Linux 抽象socket名空间
 
-所谓抽象路径名空间是Linux特有的一项特性， 它允许将一个UNIX domain socket 绑定到一个名字上但不会再文件系统中创建该名字。优势如下:
+所谓抽象路径名空间是Linux特有的一项特性， 它允许将一个UNIX domain socket 绑定到一个名字上但不会在文件系统中创建该名字。优势如下:
 - 无需担心与文件系统中的既有名字产生冲突
-- 没有必要再使用完socket之后删除socket路径名。 当socket被关闭后会自动删除这个抽象名
+- 没有必要在使用完socket之后删除socket路径名。 当socket被关闭后会自动删除这个抽象名
 - 无需为socket创建一个系统路径名
 
-**要创建一个抽象绑定就需要将sun_path自动的第一个字节指定为null字节(\0)**, 区别于传统以null结尾的字符串路径名。`sun_path`字段剩余字节为socket定义了抽象名字。
+**要创建一个抽象绑定就需要将sun_path自动的第一个字节指定为null字节(\0)**, 区别于传统以null结尾的字符串路径名。`sun_path`字段剩余字节为socket定义了抽象名字。 **避免使用空字符串作为路径名， 否则行为未定义**。
 
 
 
