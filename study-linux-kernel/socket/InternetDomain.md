@@ -13,6 +13,9 @@
 - [主机和服务转换函数概述](#主机和服务转换函数概述)
 - [域名系统(DNS)](#域名系统dns)
   - [递归和迭代的解析请求](#递归和迭代的解析请求)
+    - [DNS递归名称解析](#dns递归名称解析)
+    - [DNS迭代名称解析](#dns迭代名称解析)
+  - [顶级域](#顶级域)
 - [/etc/services文件](#etcservices文件)
 - [独立于协议的主机和服务转换](#独立于协议的主机和服务转换)
   - [getaddrinfo() 函数](#getaddrinfo-函数)
@@ -158,11 +161,40 @@ DNS的关键设计思路如下:
 - 当调用getaddrinfo()时， 依赖一组库函数(resolver库)来与本地DNS服务通信。 如本地服务无法提供所需信息， 则与位于层级中的其他DNS服务器通信以获取信息。 有时候比较耗时， DNS服务器采用了缓存技术来避免在查询常见域名时不必要的通信。
 
 ## 递归和迭代的解析请求
+递归与迭代的区别在于：DNS客户端和本地名称服务器是递归，而本地名称服务器和其他名称服务器之间是迭代。
 
+### DNS递归名称解析
+在DNS递归名称解析中， 当所配置的本地名称服务器解析不了时，后面的查询工作由本地名称服务器替代DNS客户端进行(**以本地名称服务器为中心**)。 只需要本地名称服务器向DNS客户端返回最终查询结果即可。
+
+### DNS迭代名称解析
+所有的查询工作都是以DNS客户端自己进行(以DNS客户端为中心)。 在以下条件满足时， 则会采用迭代名称解析:
+- 查询本地名称服务器时， DNS请求报头字段RD没置为1。即不要求以递归方式查询。 
+- DNS请求要求使用递归查询， 即RD置为1时，但配置的本地名称服务器禁用了递归查询(一般支持)，即在应答DNS报文头部的RA字段置为0。
+
+## 顶级域
+紧跟在匿名根节点下的节点被称为顶级域(TLD)。以此类推为二级域....。 TLD分为通用的和国家的。
+
+历史上存在七个通用TLD: `com、edu、net、org、int、mil、gov`, 近来添加了: `info、name、museum`。
+国家TLD： `de、eu、nz、us`等
 
 # /etc/services文件
+该文件记录了众所周知的端口号及其对应的服务名。 getaddrinfo()和getnameinfo()使用这个文件中的信息进行转换。基本格式如下:
+
+```
+tcpmux          1/tcp                           # TCP port service multiplexer
+tcpmux          1/udp                           # TCP port service multiplexer
+rje             5/tcp                           # Remote Job Entry
+rje             5/udp                           # Remote Job Entry
+echo            7/tcp
+echo            7/udp
+discard         9/tcp           sink null
+discard         9/udp           sink null
+systat          11/tcp          users
+systat          11/udp          users
+```
 
 # 独立于协议的主机和服务转换
+
 
 ## getaddrinfo() 函数
 
