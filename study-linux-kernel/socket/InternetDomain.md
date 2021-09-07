@@ -18,7 +18,8 @@
   - [顶级域](#顶级域)
 - [/etc/services文件](#etcservices文件)
 - [独立于协议的主机和服务转换](#独立于协议的主机和服务转换)
-  - [getaddrinfo() 函数](#getaddrinfo-函数)
+  - [getaddrinfo()函数](#getaddrinfo函数)
+  - [getnameinfo()函数](#getnameinfo函数)
 
 
 # Internet domain socket
@@ -167,7 +168,7 @@ DNS的关键设计思路如下:
 在DNS递归名称解析中， 当所配置的本地名称服务器解析不了时，后面的查询工作由本地名称服务器替代DNS客户端进行(**以本地名称服务器为中心**)。 只需要本地名称服务器向DNS客户端返回最终查询结果即可。
 
 ### DNS迭代名称解析
-所有的查询工作都是以DNS客户端自己进行(以DNS客户端为中心)。 在以下条件满足时， 则会采用迭代名称解析:
+所有的查询工作都是以DNS客户端自己进行(**以DNS客户端为中心**)。 在以下条件满足时， 则会采用迭代名称解析:
 - 查询本地名称服务器时， DNS请求报头字段RD没置为1。即不要求以递归方式查询。 
 - DNS请求要求使用递归查询， 即RD置为1时，但配置的本地名称服务器禁用了递归查询(一般支持)，即在应答DNS报文头部的RA字段置为0。
 
@@ -194,7 +195,28 @@ systat          11/udp          users
 ```
 
 # 独立于协议的主机和服务转换
+`getaddrinfo()`函数用于将主机和服务名转换为IP地址和端口号。 替代~~gethostbyname()~~与 ~~getservbyname()~~;
+`getnameinfo()`函数是`getaddrinfo()`的逆函数， 它将一个socket地址结构转换成包含对应主机和服务名的字符串。替代~~gethostbyaddr()~~和~~getservbyport()~~。
 
+这两个方法都是**可重入**的。 且不区分IPv4与IPv6。
 
-## getaddrinfo() 函数
+## getaddrinfo()函数
+
+```c
+#include <sys/socket.h>
+#include <netdb.h>
+
+/**
+ * @brief 根据主机名和服务名， 返回socket地址结构
+ * 
+ * @param host 主机名或IPv4地址(点分十进制)或IPv6地址
+ * @param service 服务名或十进制端口号
+ * @param hints 为返回的socket地址结构作限定， 指定要求
+ * @param result 根据hints返回指定socket地址结构
+ * @return int 0 表示成功， 非0则表示失败
+ */
+int getaddrinfo(const char* host, const char* service, const struct addrinfo *hints, struct addrinfo **result);
+```
+
+## getnameinfo()函数
 
