@@ -25,8 +25,9 @@
   - [UNIX domain socket 权限](#unix-domain-socket-权限)
   - [创建互联socket对: socketpair()](#创建互联socket对-socketpair)
   - [Linux 抽象socket名空间](#linux-抽象socket名空间)
+- [更多](#更多)
   
-- [TCP/IP网络基础](TCPIP.md)
+
 # Socket概述
 socket是一个各应用间允许通信的“设备”
 
@@ -318,6 +319,10 @@ int socketpair(int domain, int type, int protocol, int sockfd[2]);
 
 **要创建一个抽象绑定就需要将sun_path自动的第一个字节指定为null字节(\0)**, 区别于传统以null结尾的字符串路径名。`sun_path`字段剩余字节为socket定义了抽象名字。 **避免使用空字符串作为路径名， 否则行为未定义**。
 
+# 更多
 
+- [TCP/IP网络基础](TCPIP.md)
+- [Internet domain socket](INTERNET_DOMAIN_SOCKET.md)
+- [Socket: 服务器设计](SOCKET_SERVER_DESIGN.md)
 
 

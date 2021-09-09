@@ -20,6 +20,8 @@
 - [独立于协议的主机和服务转换](#独立于协议的主机和服务转换)
   - [getaddrinfo()函数](#getaddrinfo函数)
   - [getnameinfo()函数](#getnameinfo函数)
+  - [常见错误](#常见错误)
+- [UNIX 与 Internet domain socket比较](#unix-与-internet-domain-socket比较)
 
 
 # Internet domain socket
@@ -108,7 +110,7 @@ IPv6 通配地址的C语言常量定义为IN6ADDR_ANY_INIT, 环回地址为 IN6A
 
 # 主机和服务转换函数概述
 
-- `inet_aton()` 与 `inet_ntoa()`用于将IPv4地址的二进制与点分十进制之间的转换。
+- ~~`inet_aton()`~~ 与 ~~`inet_ntoa()`~~用于将IPv4地址的二进制与点分十进制之间的转换。
 - `inet_pton()` 和 `inet_ntop()` 用于不仅可用于IPv4 的二进制和点分十进制之间的转换， 还可应用与IPv6。
 - 如非必要， 尽量避免将IP地址转换为主机名。 因为转换过程涉及到DNS服务的请求过程。
 - 避免使用 ~~`gethostbyname()`~~ 与  ~~`getservbyname()`~~ 来返回主机名对应的二进制IP地址与端口号， 因为已过时， 替代方案是使用`getaddrinfo()`。 
@@ -201,6 +203,7 @@ systat          11/udp          users
 这两个方法都是**可重入**的。 且不区分IPv4与IPv6。
 
 ## getaddrinfo()函数
+给定一个主机名和服务名， getaddrinfo()函数返回一个socket地址结构列表(链表)
 
 ```c
 #include <sys/socket.h>
@@ -216,7 +219,66 @@ systat          11/udp          users
  * @return int 0 表示成功， 非0则表示失败
  */
 int getaddrinfo(const char* host, const char* service, const struct addrinfo *hints, struct addrinfo **result);
+
+// 清理由getaddrinfo构造的result所占用的内存
+void freeaddrinfo(struct addrinfo *result);
 ```
 
+[点击查看使用示例](socket_info_transform.c)
+
 ## getnameinfo()函数
+getnameinfo() 函数是getaddrinfo()的逆函数。给定一个socket地址结构(IPv4或IPv6)， 它返回一个包含独赢主机和服务名的字符串。
+
+```c
+#include <sys/socket.h>
+#include <netdb.h>
+
+/**
+ * @brief 根据socket 地址结构获得其主机名和服务名
+ * 
+ * @param addr socket 地址结构
+ * @param addrlen socket 地址结构长度
+ * @param host 返回主机名或IP地址
+ * @param hostlen host缓冲区长度
+ * @param service 返回服务名或端口号
+ * @param servlen service缓冲区长度
+ * @param flags 位掩码， 控制着getnameinfo()的行为。
+ * @return int 返回0 表示成功， 非0 则失败
+ */
+int getnameinfo(const struct sockaddr *addr, socklen_t addrlen, char *host, size_t hostlen, char *service, size_t servlen, int flags);
+```
+
+[点击查看使用示例](socket_info_transform.c)
+
+## 常见错误
+以上接口`getnameinfo()`与`getaddrinfo()`返回值错误常量如下:
+
+| 错误常量       | 描述                                                        |
+| :------------- | :---------------------------------------------------------- |
+| EAI_ADDRFAMILY | 在hints.ai_family中不存在host的地址                         |
+| EAI_AGAIN      | 名字解析过程发生临时错误(稍后重试)                          |
+| EAI_FAIL       | 访问名字服务器时发生了无法恢复的故障                        |
+| EAI_FAMILY     | 不支持在hints.ai_family中指定的地址族                       |
+| EAI_MEMORY     | 内存分配故障                                                |
+| EAI_NODATA     | 没有与host关联的地址                                        |
+| EAI_OVERFLOW   | 参数缓冲器溢出                                              |
+| EAI_SERVICE    | hints.ai_socktype不支持指定的service(仅供getaddrinfo()使用) |
+| EAI_SOCKTYPE   | 不支持指定的hints.ai_socktype（仅供getadrinfo()使用）       |
+| EAI_SYSTEM     | 通过errno返回系统错误                                       |
+
+
+根据错误码获取错误描述：
+```c
+#include <netdb.h>
+
+// 返回错误详情
+const char * gai_strerror(int errcode);
+```
+
+
+# UNIX 与 Internet domain socket比较
+当编写通过网络进行通信的应用程序时必须要使用Internet domain socket， 当位于同一系统上的应用程序使用socket 进行通信时则可选择Internet或UNIX domain socket。
+它们存在以下差异:
+- 在一些实现上， UNIX domain socket的速度比Internet domain socket 速度块
+- 可以使用目录(或文件) 权限来控制对UNIX domain socket的访问
 
