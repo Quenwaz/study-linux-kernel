@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 		
-		fprintf(stderr, "send %d bytes msg: %s\n", _n_read, szMsg);
+		fprintf(stderr, "send %ld bytes msg: %s\n", _n_read, szMsg);
 		memset(szMsg, 0, _n_read);
 		_n_read = recv(sock, szMsg, sizeof(szMsg), 0);
 		if (_n_read == -1)
@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 			continue;
 		}
 
-		fprintf(stderr, "recv %d bytes msg: %s\n", _n_read, szMsg);
+		fprintf(stderr, "recv %ld bytes msg: %s\n", _n_read, szMsg);
 	}
 
 	close(sock);

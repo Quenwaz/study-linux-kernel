@@ -7,9 +7,56 @@
 #include <errno.h>
 
 
+void get_service_address(int socktype, const char* servicename)
+{
+    struct addrinfo hints;
+    struct addrinfo *result;
+    memset(&hints, 0, sizeof(struct addrinfo));
+
+    hints.ai_canonname = NULL;
+    hints.ai_addr = NULL;
+    hints.ai_next = NULL;
+    hints.ai_socktype = socktype;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags = AI_PASSIVE;
+
+    int ret = getaddrinfo(NULL, servicename, &hints, &result);
+    if (ret != 0){
+        return;
+    }
+
+    // struct sockaddr_storage addr;
+    
+    if (result->ai_addrlen == sizeof(struct sockaddr_in))
+    {
+        struct sockaddr_in ipv4;
+        memcpy(&ipv4, result->ai_addr, result->ai_addrlen);
+
+        char ip_addr[16] ={0};
+        inet_ntop(AF_INET, &ipv4.sin_addr, ip_addr, sizeof(ip_addr));
+        fprintf(stderr, "%s <> %s:%d\n", servicename, ip_addr, ntohs(ipv4.sin_port));
+
+    }else if (result->ai_addrlen == sizeof(struct sockaddr_in6))
+    {
+        struct sockaddr_in6 ipv6;
+        memcpy(&ipv6, result->ai_addr, result->ai_addrlen);
+        char ip_addr[32] ={0};
+        inet_ntop(AF_INET6, &ipv6.sin6_addr, ip_addr, sizeof(ip_addr));
+        fprintf(stderr, "%s <> %s:%d\n", servicename, ip_addr, ntohs(ipv6.sin6_port));
+    }
+}
+
 
 int main(int argc, char const *argv[])
 {
+
+    get_service_address(SOCK_STREAM, "echo");
+    get_service_address(SOCK_STREAM, "ssh");
+    get_service_address(SOCK_STREAM, "ftp");
+    get_service_address(SOCK_STREAM, "xftp");
+    get_service_address(SOCK_STREAM, "http");
+    get_service_address(SOCK_STREAM, "smtp");
+
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
