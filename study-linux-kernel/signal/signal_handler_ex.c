@@ -15,9 +15,10 @@
  * @copyright Copyright (c) 2021 Quenwaz
  * 
  */
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <signal.h>
-#include <bits/sigaction.h> // for struct sigaction
+
 #include <unistd.h>
 #include "common.h"
 

@@ -101,14 +101,14 @@
 | SIGQUIT   | 终端退出， Control+\                                         | core   |
 | SIGSEGV   | 无效的内存引用， 通常为段错误                                | core   |
 | SIGSTKFLT | 协处理器栈错误                                               | term   |
-| SIGSTOP   | 确保停止                                                     | stop   |
+| SIGSTOP   | 确保停止, Control + Z                                                     | stop   |
 | SIGSYS    | 无效的系统调用                                               | core   |
 | SIGTERM   | 终止进程， kill和killall命令所发送的默认信号。               | term   |
 | SIGTRAP   | 跟踪/断点陷阱                                                | core   |
 | SIGTSTP   | 终端停止                                                     | stop   |
 | SIGTTIN   | BG从终端中读取                                               | stop   |
 | SIGTTOU   | BG向终端写入                                                 | stop   |
-| SIGURG    | 系统发送毅哥信号给进程， 表示套接字上存在带外(紧急)数据      | ignore |
+| SIGURG    | 系统发送一个信号给进程， 表示套接字上存在带外(紧急)数据      | ignore |
 | SIGUSR1   | 用户自定义信号1                                              | term   |
 | SIGUSR2   | 用户自定义信号2                                              | term   |
 | SIGVTALRM | 虚拟定时器过期                                               | term   |
@@ -281,7 +281,7 @@ int killpg(pid_t pgrp, int sig);
 
 ```
 
-显示信号描述的系统调用`char* strsignal(int sig)`, 但此接口未纳入SUSv3标准， 需要声明宏**_GNU_SOURCE**
+显示信号描述的系统调用`char* strsignal(int sig)`, 但此接口未纳入SUSv3标准， 需要声明宏 **_GNU_SOURCE**
 
 ## 信号集操作
 
