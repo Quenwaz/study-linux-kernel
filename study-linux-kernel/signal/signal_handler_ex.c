@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include "common.h"
 
-void sign_interrupt_handler(int signno)
+void sign_handler(int signno)
 {
     const char* sign_name = signno == SIGINT? "SIGINT": "SIGQUIT";
     printf("Trigger the %s(%d) signal.\n",sign_name, signno);
@@ -37,7 +37,7 @@ int main(int argc, char const *argv[])
     setbuf(stdout, NULL);
 
     struct sigaction sa;
-    sa.sa_handler = sign_interrupt_handler;
+    sa.sa_handler = sign_handler;
     sigemptyset(&sa.sa_mask);
     // 执行SIGINT时， 不允许被SIGQUIT中断
     sigaddset(&sa.sa_mask, SIGQUIT);

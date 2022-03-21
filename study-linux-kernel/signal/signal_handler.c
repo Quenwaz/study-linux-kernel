@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include "common.h"
 
-void sign_interrupt_handler(int signno)
+void sign_handler(int signno)
 {
     const char* sign_name = signno == SIGINT? "SIGINT": "SIGQUIT";
     printf("Trigger the %s(%d) signal.\n",sign_name, signno);
@@ -27,13 +27,13 @@ int main(int argc, char const *argv[])
 
     // 关闭缓冲
     setbuf(stdout, NULL);
-    void (*oldHandler) (int) = signal(SIGINT, sign_interrupt_handler);
+    void (*oldHandler) (int) = signal(SIGINT, sign_handler);
     if (oldHandler == SIG_ERR){
         printf("Failed to set SIGINT signal handler.\n");
         return 1;
     }
 
-    if (bSetSigQuit && signal(SIGQUIT, sign_interrupt_handler) == SIG_ERR){
+    if (bSetSigQuit && signal(SIGQUIT, sign_handler) == SIG_ERR){
         printf("Failed to set SIGQUIT signal handler.\n");
         return 1;
     }
