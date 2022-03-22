@@ -35,15 +35,32 @@ $(info objects=$(OBJS_C))
 # targets
 ###############################################
 TARGETS=$(patsubst %.c,%, $(notdir $(SRC_C)))
+finddll=$(findstring dll,$(TARGETS))
+$(info finddll=$(finddll))
+
+ifeq ($(finddll),dll) 
+TARGETS:=lib$(TARGETS).so
+CFLAGS+=-fPIC
+$(info Will be compiled into a dynamic link library)
+$(info CFLAG = $(CFLAGS))
+endif
+
 $(info targets=$(TARGETS))
+
 
 ###############################################
 # build
 ###############################################
 all: $(TARGETS) clean
 
+
 $(TARGETS): $(OBJS_C)
-	$(CC) $< -o $(BINDIR)/$@  $(LIB)
+	@if [ $(finddll) = dll ];\
+	then \
+	$(CC) $< -shared -fPIC -o $(BINDIR)/$@;\
+	else \
+	$(CC) $< -o $(BINDIR)/$@  $(LIB);\
+	fi
 
 # $(OBJS_C): %.o:%.c
 $(OBJS_C): %.o:$(SRC_C)

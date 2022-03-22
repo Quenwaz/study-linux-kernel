@@ -21,7 +21,7 @@
  
 #define BACKTRACE_SIZE   16
  
-void dump(void)
+void dump_backtrace(void)
 {
 	int j, nptrs;
 	void *buffer[BACKTRACE_SIZE];
@@ -52,10 +52,10 @@ void signal_handler(int signo)
 	system((const char*) buff);
 #endif	
  
-	printf("\n=========>>>catch signal %d <<<=========\n", signo);
-	printf("Dump stack start...\n");
-	dump();
-	printf("Dump stack end...\n");
+	printf("\n============catch signal %d============\n", signo);
+	printf("<backtrace dump start>\n");
+	dump_backtrace();
+	printf("<backtrace dump end>\n");
  
 	signal(signo, SIG_DFL); /* 恢复信号默认处理 */
 	raise(signo);           /* 重新发送信号 */
@@ -74,7 +74,6 @@ int main(int argc, char const *argv[])
         printf("Failed to set SIGSEGV signal handler.\n");
         return 1;
     }
-    const int v = 0xbe88e000 - 0xbe86d000;
     char test_array[] = {'I', 'L', 'O', 'V', 'E', 'Y', 'O', 'U'};
     test_array[8192] = 'Q';
 
