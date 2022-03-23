@@ -35,11 +35,11 @@ int main(int argc, char const *argv[])
             close(fd);
         }
     }
+    
 
     time_t timestamp;
     time(&timestamp);
     fprintf(stderr, "\ncurrent timestamp:%ld\n", timestamp);
-
     char test_array[] = {'I', 'L', 'O', 'V', 'E', 'Y', 'O', 'U'};
     test_array[8192] = 'Q';
     return 0;

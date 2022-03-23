@@ -1,4 +1,4 @@
-CC:=gcc
+CC=gcc
 CFLAGS:= -g -Wall -Wno-unused -Werror -c -std=c11
 
 BIN_PATH=$(BINDIR)
@@ -51,15 +51,15 @@ $(info targets=$(TARGETS))
 ###############################################
 # build
 ###############################################
-all: $(TARGETS) clean
+all: $(TARGETS) 
 
-
+# 添加选项 --verbose 打印编译详情
 $(TARGETS): $(OBJS_C)
 	@if [ $(finddll) = dll ];\
 	then \
-	$(CC) $< -shared -fPIC -o $(BINDIR)/$@;\
+	$(CC) --verbose $< -shared -fPIC -o $(BINDIR)/$@;\
 	else \
-	$(CC) $< -o $(BINDIR)/$@  $(LIB);\
+	$(CC) --verbose $< -o $(BINDIR)/$@  $(LIB);\
 	fi
 
 # $(OBJS_C): %.o:%.c
