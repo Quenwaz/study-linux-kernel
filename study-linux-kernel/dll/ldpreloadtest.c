@@ -36,11 +36,11 @@ int main(int argc, char const *argv[])
         }
     }
     
-
+    sleep(60);
     time_t timestamp;
     time(&timestamp);
     fprintf(stderr, "\ncurrent timestamp:%ld\n", timestamp);
-    char test_array[] = {'I', 'L', 'O', 'V', 'E', 'Y', 'O', 'U'};
-    test_array[8192] = 'Q';
+    char* test_array =(char*)malloc(10);
+    test_array[1100000] = 'Q';
     return 0;
 }

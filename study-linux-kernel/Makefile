@@ -51,7 +51,7 @@ $(info targets=$(TARGETS))
 ###############################################
 # build
 ###############################################
-all: $(TARGETS) 
+all: $(TARGETS) clean
 
 # 添加选项 --verbose 打印编译详情
 $(TARGETS): $(OBJS_C)
