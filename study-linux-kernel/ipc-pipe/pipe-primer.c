@@ -1,9 +1,11 @@
-﻿#include <stdlib.h>
+﻿#define _GNU_SOURCE
+#include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <sys/wait.h>
-#include <unistd.h>
 #include <string.h>
 #define BUF_SIZE 32
+
 
 int main(int argc, char* argv[])
 {
@@ -13,7 +15,10 @@ int main(int argc, char* argv[])
 		return EXIT_FAILURE;
 	}
 
-	int pfd[2] = { -1, -1 };
+
+
+	int pfd[2] = { -1, -1 };	
+
 	if (pipe(pfd) == -1)
 	{
 		fprintf(stderr, "mkpipe failure...\n");
@@ -48,7 +53,7 @@ int main(int argc, char* argv[])
 			}
 
 			
-			fprintf(stderr, "child recv %d byte of data from the pipe.\n", numRead);
+			fprintf(stderr, "child recv %ld byte of data from the pipe.\n", numRead);
 			if (write(STDOUT_FILENO, buf, numRead) != numRead)
 			{
 				fprintf(stderr, "child pipe write failure...\n");
