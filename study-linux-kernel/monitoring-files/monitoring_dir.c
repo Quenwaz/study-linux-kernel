@@ -99,6 +99,7 @@ handle_events(int fd, const char* folder, const char* filename, MatchedCall fnCa
     }
 }
 
+
 int main(int argc, char *argv[])
 {
     char buf;
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
     nfds_t nfds;
     struct pollfd fds[1];
     char* command;
-
+    
     if (argc < 3)
     {
         printf("Usage: %s PATH FILENAME COMMAND\n", argv[0]);
