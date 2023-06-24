@@ -1,12 +1,15 @@
 CC=gcc
-CFLAGS:= -g -Wall -Wno-unused -Werror -c -std=c11
+
 
 BIN_PATH=$(BINDIR)
 ROOT_PATH=$(shell pwd)
 INC_PATH=-I$(ROOT_PATH)/common
 SRC_PATH=$(SRCDIR)
+
+CFLAGS:= -g -Wall -Wno-unused -Werror -c -std=c11 -I$(SRC_PATH) -I$(SRC_PATH)/../
 VPATH=$(SRC_PATH):$(OBJDIR)
-LIB=-lpthread -lcrypt -lm
+LDLIBS=-lpthread -lcrypt -lm
+LDFLAGS=-L$(BIN_PATH) -Wl,-rpath=. #$(BIN_PATH)
 
 # SRC_PATH+=$(ROOT_PATH)/src
 $(info BIN_PATH=$(BIN_PATH))
@@ -35,10 +38,13 @@ $(info objects=$(OBJS_C))
 # targets
 ###############################################
 TARGETS=$(patsubst %.c,%, $(notdir $(SRC_C)))
-finddll=$(findstring dll,$(TARGETS))
-$(info finddll=$(finddll))
 
-ifeq ($(finddll),dll) 
+dynamic_link_library:=$(filter %dll,$(TARGETS))
+$(info dynamic_link_library=$(dynamic_link_library))
+# finddll=$(findstring dll,$(TARGETS))
+# $(info finddll=$(finddll))
+
+ifneq ($(dynamic_link_library),)
 TARGETS:=lib$(TARGETS).so
 CFLAGS+=-fPIC
 $(info Will be compiled into a dynamic link library)
@@ -49,17 +55,25 @@ $(info targets=$(TARGETS))
 
 
 ###############################################
+# dependent dynamic link library 
+###############################################
+ifeq ($(dynamic_link_library),)
+DEP_DLL:=$(call wildcard,$(BIN_PATH)/libcommon*.so)
+DEP_DLL:=$(patsubst lib%.so,-l%,$(notdir $(DEP_DLL)))
+$(info DEP_DLL=$(DEP_DLL))
+endif
+
+###############################################
 # build
 ###############################################
 all: $(TARGETS) clean
 
 # 添加选项 --verbose 打印编译详情
 $(TARGETS): $(OBJS_C)
-	@if [ $(finddll) = dll ];\
-	then \
-	$(CC) --verbose $< -shared -fPIC -o $(BINDIR)/$@;\
+	@if [ "$(dynamic_link_library)" = "" ];then \
+	$(CC) --verbose $< -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS) $(DEP_DLL);\
 	else \
-	$(CC) --verbose $< -o $(BINDIR)/$@  $(LIB);\
+	$(CC) --verbose $< -shared -fPIC -o $(BINDIR)/$@;\
 	fi
 
 # $(OBJS_C): %.o:%.c
