@@ -150,7 +150,7 @@ int main(int argc, char const *argv[])
             if( FD_ISSET(STDIN_FILENO, &set_read) && 
                 (numread=read(STDIN_FILENO, msg, sizeof msg)) > 0)
             {
-                fprintf(stderr, "pid[%d] read number of byte: %d, error:%s\n", getpid(), numread, strerror(errno));
+                fprintf(stderr, "pid[%d] read number of byte: %ld, error:%s\n", getpid(), numread, strerror(errno));
                 if (-1 == write(fd_pipe[1], msg, numread)){
                     
                     break;
